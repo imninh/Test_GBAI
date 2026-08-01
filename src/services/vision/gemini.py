@@ -27,6 +27,10 @@ from src.services.vision.base import (
 _BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 _TIMEOUT_SECONDS = 60.0
 
+# Mức "suy nghĩ" thấp nhất mà `gemini-flash-latest` và `gemini-flash-lite-latest`
+# chấp nhận (đo 01/08/2026 — đặt 0 thì API trả 400). Xem chú thích ở ``_call``.
+_THINKING_BUDGET = 128
+
 
 class GeminiClient:
     """Gọi model Gemini qua REST."""
@@ -118,12 +122,26 @@ class GeminiClient:
                 "temperature": 0.1,
                 "maxOutputTokens": 900,
                 "responseMimeType": "application/json",
+                # Các model Gemini đời mới bật "suy nghĩ" mặc định, và token suy
+                # nghĩ TÍNH VÀO maxOutputTokens. Đo ngày 01/08/2026 trên
+                # `gemini-flash-latest`: 672 token suy nghĩ / 900, còn 24 token
+                # cho câu trả lời → JSON bị cắt giữa chừng, `finishReason`
+                # MAX_TOKENS. Phân loại rác là bài trích xuất có cấu trúc, không
+                # cần suy luận nhiều bước nên ghìm xuống mức thấp nhất dùng được.
+                # (``thinkingBudget: 0`` bị hai model này từ chối bằng lỗi 400.)
+                "thinkingConfig": {"thinkingBudget": _THINKING_BUDGET},
             },
         }
 
         try:
             with httpx.Client(timeout=_TIMEOUT_SECONDS) as client:
                 response = client.post(url, json=payload)
+                # Danh mục model Gemini đổi liên tục và không phải model nào cũng
+                # nhận ``thinkingConfig``. Thử lại một lần không kèm tham số đó,
+                # thay vì để cả luồng chết vì một tuỳ chọn tối ưu.
+                if response.status_code == 400:
+                    payload["generationConfig"].pop("thinkingConfig", None)
+                    response = client.post(url, json=payload)
         except httpx.HTTPError as exc:
             raise VisionUnavailableError(
                 "Không kết nối được tới máy chủ model. Ảnh của bạn vẫn được giữ lại.",

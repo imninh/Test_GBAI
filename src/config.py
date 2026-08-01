@@ -173,7 +173,13 @@ class Settings(BaseSettings):
                 "meta/llama-3.2-90b-vision-instruct",
                 "meta/llama-3.1-8b-instruct",
             ),
-            "gemini": ("gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash"),
+            # Google đã đóng ``gemini-2.5-flash`` và ``gemini-2.5-pro`` với key
+            # tạo mới ("no longer available to new users", HTTP 404) — chúng vẫn
+            # hiện trong danh sách ``/models`` nên chỉ lộ ra lúc gọi thật. Bí
+            # danh ``*-latest`` không bị khoá và tự trỏ sang bản mới nhất.
+            # Đo ngày 01/08/2026: `pro-latest` và `2.0-flash` trả 429 ngay từ
+            # lần gọi đầu trên free tier, nên T2 dùng `flash-latest`.
+            "gemini": ("gemini-flash-lite-latest", "gemini-flash-latest", "gemini-flash-latest"),
             "local_only": ("", "", ""),
         }
         t1, t2, text = defaults.get(self.vision_provider, ("", "", ""))

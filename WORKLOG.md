@@ -211,6 +211,52 @@ Không chuẩn lại mà cứ chạy thì tầng T0.5 sẽ **chốt nhãn cho nh
 
 ---
 
+## 2026-08-02 (buổi 2) — advise sang NVIDIA, và nối nốt phần embedding của RAG
+
+| Member | Task | Status | Output | Time |
+|--------|------|--------|--------|------|
+| Ninh | Đưa `advise` sang NVIDIA | ✅ Done | **Không sửa dòng code nào** — Hướng 3 hôm qua đã biến nó thành `VISION_PROVIDER_TEXT=nvidia`. Đo: `llama-3.1-8b-instruct` 1,5–2,2s, tiếng Việt bám đúng nguồn | — |
+| Ninh | **Phát hiện: RAG chưa từng chạy hybrid** | ✅ Done | `embed_chunks()` không được gọi ở đâu · 0/13 đoạn có vector · `advise()` không truyền `query_embedding`. Tài liệu ghi "hybrid" mà thực tế thuần BM25 | — |
+| Ninh | Embedding có provider riêng | ✅ Done | `EMBEDDING_PROVIDER` tách khỏi tầng `text`. Đo: NVIDIA không trả vector qua endpoint nào, `text-embedding-004` đã chết, chỉ `gemini-embedding-001` chạy — cắt còn 768 chiều | — |
+| Ninh | Nhúng câu hỏi **có cache đĩa** | ✅ Done | `LLM_CACHE_DIR` khai từ đầu mà chưa chỗ nào dùng; nay dùng đúng như `CLAUDE.md` mục 9 yêu cầu. Chỉ nhúng khi kho thật sự có vector để so | — |
+| Ninh | Nhúng kho lúc khởi động + `seed.py --embed` | ✅ Done | Chạy luồng nền, gọi lại vô hại. Máy chủ deploy không có chỗ chạy tay | — |
+| Ninh | **Bộ 18 câu hỏi có đáp án + script đo** | ✅ Done | `eval/retrieval_questions.py`, `eval/run_retrieval_eval.py` — hit@k + MRR, so BM25 với hybrid, quét được trọng số | — |
+| Ninh | Trang Vận hành hiện chế độ truy hồi | ✅ Done | hybrid hay BM25 · bao nhiêu đoạn có vector · model embedding · trọng số | — |
+| Ninh | Test + báo cáo eval | ✅ Done | **116 pass** (thêm 8) · `eval/results/report.md` viết lại bằng số đo thật | — |
+| — | Đổi `VISION_PROVIDER_TEXT=nvidia` trên Render | ⬜ Chưa làm | đã khai trong `render.yaml`, cần redeploy | — |
+| — | Viết bộ câu hỏi từ 18 lên ~60 câu | ⬜ Chưa làm | trước khi chốt trọng số vector | — |
+
+**Số đo truy hồi (18 câu):**
+
+| | BM25 | Hybrid |
+|---|---|---|
+| hit@1 | 0,667 | **0,722** |
+| hit@5 | 0,944 | **1,000** |
+| MRR | 0,792 | **0,838** |
+
+**Tổng kết ngày:** Ý "cho advise dùng model miễn phí khác" hoá ra không cần code
+gì — đúng phần thưởng của việc hôm qua bỏ công tách provider theo tầng: một việc
+tưởng phải sửa code thành một dòng biến môi trường.
+
+Nhưng thứ đáng giá hơn lại là cái tìm ra khi đi kiểm tác động phụ: **phần
+embedding của RAG chưa từng chạy**. Code hybrid viết đủ và đúng từ đầu, chỉ là
+không ai nối dây ở cả hai đầu — chunk không có vector, và câu hỏi không được
+nhúng. Nghĩa là suốt thời gian qua `CLAUDE.md` và PLO 3 đang mô tả một thứ chưa
+tồn tại. Kiểu lỗi này không test nào bắt được, vì mọi test đều pass: hệ thống vẫn
+truy hồi, vẫn trả lời, chỉ là bằng một nửa cơ chế đã hứa.
+
+Bài học ghi lại: **có code không có nghĩa là có chạy.** Chỗ nào tuyên bố một năng
+lực thì phải có một chỗ trên trang Vận hành nói rõ nó đang bật hay tắt — đã làm
+đúng vậy cho cả T0.5 (bản nén / bản đầy đủ) lẫn truy hồi (hybrid / BM25).
+
+Chỗ giữ được tỉnh táo: quét trọng số cho thấy vector thuần đạt hit@1 0,889 so
+với 0,722 hiện tại — rất hấp dẫn để đổi ngay. **Không đổi**, vì 18 câu đó do
+chính mình viết theo lối nói cư dân, tức thiên vị embedding sẵn. Đổi theo bảng
+đó là overfit vào bộ test của chính mình. Biến trọng số thành tham số chỉnh được
+rồi chờ đủ 60 câu.
+
+---
+
 ## [YYYY-MM-DD]
 
 | Member | Task | Status | Output | Time |

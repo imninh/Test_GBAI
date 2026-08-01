@@ -195,6 +195,27 @@ def routing_metrics(session: Session) -> dict[str, Any]:
     }
 
 
+def _trang_thai_truy_hoi(session: Session) -> dict[str, Any]:
+    """Truy hồi đang chạy hybrid hay thuần từ khoá — và bằng chứng cho câu trả lời.
+
+    Trước 02/08/2026 phần embedding có code nhưng chưa từng được nối, nên tài
+    liệu ghi "hybrid" mà thực tế là BM25. Đưa hẳn lên trang Vận hành để lần sau
+    không ai phải đoán.
+    """
+    from src.services.rag import so_doan_co_embedding
+
+    settings = get_settings()
+    co, tong = so_doan_co_embedding(session)
+    return {
+        "che_do": "hybrid" if co else "bm25",
+        "chunks_co_embedding": co,
+        "chunks_tong": tong,
+        "embedding_provider": settings.resolve_embedding_provider(),
+        "embedding_model": settings.resolve_embedding_model(),
+        "vector_weight": settings.rag_vector_weight,
+    }
+
+
 def ops_metrics(session: Session, *, days: int = 30) -> dict[str, Any]:
     """Gói toàn bộ số liệu cho trang Vận hành."""
     from src.db.seed_data import KNOWN_LIMITATIONS
@@ -211,6 +232,7 @@ def ops_metrics(session: Session, *, days: int = 30) -> dict[str, Any]:
         # Cố tình dùng bản không có tác dụng phụ: endpoint chỉ đọc không được
         # kích hoạt việc tải model 350MB.
         "provider": {**provider_status(), "local_model_loaded": local_model_loaded()},
+        "retrieval": _trang_thai_truy_hoi(session),
         "known_limitations": KNOWN_LIMITATIONS,
         "has_seed_data": seed_count > 0,
         "seed_count": seed_count,

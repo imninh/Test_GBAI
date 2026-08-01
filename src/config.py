@@ -70,6 +70,17 @@ PROVIDER_DEFAULT_MODELS: dict[str, tuple[str, str, str]] = {
     "local_only": ("", "", ""),
 }
 
+# Model embedding mặc định của từng nhà cung cấp. NVIDIA để trống vì đo ngày
+# 02/08/2026 không endpoint nào qua đường OpenAI-compatible trả về vector —
+# để trống thì RAG tự chạy thuần BM25 thay vì gọi hỏng liên tục.
+PROVIDER_DEFAULT_EMBEDDING_MODELS: dict[str, str] = {
+    "gemini": "gemini-embedding-001",
+    "openai": "text-embedding-3-small",
+    "openrouter": "openai/text-embedding-3-small",
+    "nvidia": "",
+    "local_only": "",
+}
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -133,8 +144,29 @@ class Settings(BaseSettings):
     model_name: str = "gpt-4o-mini"
     model_fast: str = "gpt-4o-mini"
     model_smart: str = "gpt-4o"
-    embedding_model: str = "text-embedding-3-small"
     llm_temperature: float = Field(default=0.2, ge=0.0, le=2.0)
+
+    # --- Embedding cho RAG ------------------------------------------------
+    # Tách khỏi tầng ``text``: nhà cung cấp giỏi sinh văn bản chưa chắc có
+    # endpoint embedding dùng được. Đo ngày 02/08/2026: NVIDIA không nhận model
+    # embedding nào qua đường OpenAI-compatible, còn `text-embedding-004` của
+    # Google đã chết như các model 2.5 — chỉ `gemini-embedding-001` còn chạy.
+    embedding_provider: str = ""  # trống = theo ``vision_provider``
+    embedding_model: str = ""  # trống = mặc định của provider
+    # ``gemini-embedding-001`` trả 3072 chiều; cắt còn 768 để kho vector nhẹ đi
+    # 4 lần mà chất lượng gần như không đổi (Matryoshka). Đã kiểm API chấp nhận.
+    embedding_dimensions: int = Field(default=768, ge=64, le=4096)
+    # Tự nhúng kho quy định lúc khởi động. Bật trên Render vì ở đó không có chỗ
+    # chạy tay `scripts/seed.py --embed`; để tắt khi dev cho khỏi tốn quota mỗi
+    # lần khởi động lại máy chủ.
+    embed_kb_on_start: bool = False
+    # Trọng số của điểm embedding khi trộn với BM25 (0 = thuần từ khoá).
+    # Quét thử ngày 02/08/2026 trên 18 câu hỏi ở ``eval/retrieval_questions.py``
+    # cho thấy đẩy lên 0,8 thì hit@1 tăng từ 0,722 lên 0,833 — NHƯNG bộ câu đó
+    # cố ý viết theo lối nói cư dân, tức thiên vị embedding, và 18 câu là quá ít
+    # để chốt. Giữ 0,35 cho tới khi có bộ ~60 câu như CLAUDE.md mục 7 yêu cầu;
+    # quét lại bằng `python eval/run_retrieval_eval.py --quet-trong-so`.
+    rag_vector_weight: float = Field(default=0.35, ge=0.0, le=1.0)
 
     prompt_version: str = "v1"
 
@@ -252,6 +284,16 @@ class Settings(BaseSettings):
     def resolve_models(self) -> tuple[str, str, str]:
         """``(model_t1, model_t2, model_text)`` — lớp bọc quanh :meth:`resolve_model_for`."""
         return (self.resolve_model_for("t1"), self.resolve_model_for("t2"), self.resolve_model_for("text"))
+
+    def resolve_embedding_provider(self) -> str:
+        """Nhà cung cấp lo phần embedding của RAG."""
+        return (self.embedding_provider or self.vision_provider).strip()
+
+    def resolve_embedding_model(self) -> str:
+        """Model embedding. Rỗng nghĩa là provider đó không dùng được → RAG chạy thuần BM25."""
+        if self.embedding_model:
+            return self.embedding_model
+        return PROVIDER_DEFAULT_EMBEDDING_MODELS.get(self.resolve_embedding_provider(), "")
 
 
 @lru_cache

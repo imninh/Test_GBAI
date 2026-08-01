@@ -145,6 +145,40 @@ cp .env.example .env
 | NVIDIA NIM | ✅ | API tương thích OpenAI |
 | DeepSeek | ❌ | **chỉ text** — không dùng được cho phân loại ảnh |
 
+### Embedding cho RAG
+
+Truy hồi quy định chạy **hybrid BM25 + embedding**. Embedding dùng nhà cung cấp
+**riêng**, không bám theo tầng `text`:
+
+```bash
+EMBEDDING_PROVIDER=gemini     # đo 02/08: NVIDIA không có endpoint embedding dùng được
+EMBEDDING_DIMENSIONS=768      # cắt từ 3072 cho kho vector nhẹ đi 4 lần
+```
+
+Nhúng kho quy định (một lệnh gọi cho cả kho, chạy lại vô hại):
+
+```bash
+python scripts/seed.py --embed
+```
+
+Đo chất lượng truy hồi:
+
+```bash
+python eval/run_retrieval_eval.py
+```
+
+Kết quả trên 18 câu hỏi có đáp án — hybrid hơn BM25 ở mọi chỉ số, và **hit@5 =
+1,000** nghĩa là model luôn nhận được đoạn quy định đúng:
+
+| | BM25 | Hybrid |
+|---|---|---|
+| hit@1 | 0,667 | **0,722** |
+| hit@5 | 0,944 | **1,000** |
+| MRR | 0,792 | **0,838** |
+
+Không có API key thì truy hồi tự chạy **thuần BM25** — mất một phần chất lượng,
+không ai bị chặn. Trang Vận hành hiện rõ đang chạy chế độ nào.
+
 ### Mỗi tầng một nhà cung cấp
 
 `VISION_PROVIDER` là mặc định chung; ba biến dưới đây ghi đè cho riêng từng tầng

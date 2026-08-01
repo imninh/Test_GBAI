@@ -568,6 +568,11 @@ def main() -> None:
     parser.add_argument("--demo", action="store_true", help="thêm dữ liệu mô phỏng cho trang Vận hành / Chất lượng AI")
     parser.add_argument("--reset", action="store_true", help="xoá sạch dữ liệu cũ trước khi nạp")
     parser.add_argument("--count", type=int, default=140, help="số bản ghi phân loại mô phỏng")
+    parser.add_argument(
+        "--embed",
+        action="store_true",
+        help="tính embedding cho kho quy định (cần API key, tốn 1 lệnh gọi cho cả kho)",
+    )
     args = parser.parse_args()
 
     if args.reset:
@@ -586,6 +591,21 @@ def main() -> None:
             print("Đã có dữ liệu demo từ trước — bỏ qua. Dùng --reset nếu muốn nạp lại từ đầu.")
         elif ket_qua["demo_da_nap"]:
             print(f"Đã nạp dữ liệu demo mô phỏng ({args.count} lượt phân loại), tất cả gắn cờ is_seed=True.")
+
+        if args.embed:
+            from src.services.rag import embed_chunks, so_doan_co_embedding
+
+            them = embed_chunks(session)
+            co, tong = so_doan_co_embedding(session)
+            if them:
+                print(f"Đã nhúng {them} đoạn quy định — {co}/{tong} đoạn có vector, truy hồi chạy hybrid.")
+            elif co == tong and tong:
+                print(f"Kho quy định đã có sẵn vector ({co}/{tong}).")
+            else:
+                print(
+                    f"KHÔNG nhúng được ({co}/{tong} đoạn có vector). Kiểm EMBEDDING_PROVIDER và API key; "
+                    "truy hồi tạm chạy thuần BM25."
+                )
 
     print(f"Xong. Tài khoản demo dùng chung mật khẩu: {DEMO_PASSWORD}")
 

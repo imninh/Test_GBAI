@@ -318,6 +318,24 @@ export function OpsScreen() {
           ) : null}{" "}
           · prompt <b>{du.provider.prompt_version}</b>
         </div>
+        {du.retrieval ? (
+          <div className="mt-1 text-[13px] font-semibold leading-loose text-ink-soft">
+            Truy hồi quy định:{" "}
+            <b>
+              {du.retrieval.che_do === "hybrid"
+                ? "hybrid — từ khoá + embedding"
+                : "thuần từ khoá (BM25)"}
+            </b>{" "}
+            · {du.retrieval.chunks_co_embedding}/{du.retrieval.chunks_tong} đoạn có vector
+            {du.retrieval.che_do === "hybrid" ? (
+              <>
+                {" "}
+                · {du.retrieval.embedding_model || "—"} · trọng số vector{" "}
+                {du.retrieval.vector_weight.toLocaleString("vi-VN")}
+              </>
+            ) : null}
+          </div>
+        ) : null}
       </Card>
 
       <div className="rounded-2xl border border-amber-line bg-amber-soft p-4">

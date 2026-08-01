@@ -66,7 +66,7 @@ Product/Business · System Design · UX/UI · DevOps · Code Quality
 |---|---|---|
 | 1 | Kiến trúc agent, model routing | Định tuyến 3 tầng T0/T1/T2 (mục 4) |
 | 2 | Multi-agent, trace được | Graph `classify → advise → schedule`, màn Agent Run |
-| 3 | RAG vượt naive, có đo lường | Kho quy định phân loại, hybrid + filter theo toà, precision@k |
+| 3 | RAG vượt naive, có đo lường | Kho quy định phân loại, hybrid + filter theo toà. **Đo được 02/08:** hybrid hơn BM25 ở mọi chỉ số (hit@1 0,722 vs 0,667 · hit@5 **1,000** vs 0,944 · MRR 0,838 vs 0,792) trên 18 câu ở `eval/retrieval_questions.py`. Dùng hit@k + MRR thay cho precision@5 vì mỗi câu chỉ có 1–2 đoạn đúng |
 | 4 | Giá trị kinh doanh | Giảm phí xử lý rác, giảm số chuyến xe, có nền pháp lý |
 | 5 | Hạ tầng, giám sát độ trễ/lỗi/chi phí | Trang Ops |
 | 6 | Guardrails, HITL, chống rò rỉ dữ liệu | Xử lý ảnh + từ chối trả lời khi không chắc (mục 5) |
@@ -194,7 +194,11 @@ Nền pháp lý cho phần "vì sao bây giờ": Luật Bảo vệ môi trườn
 - Chỉ số: accuracy · **macro-F1** · confusion matrix · **recall riêng cho nhóm nguy hại**
 - **Chỉ số an toàn: tỉ lệ rác nguy hại bị phân loại thành rác thường — mục tiêu 0%.** In to trên slide.
 - Bảng so sánh 3 tầng: accuracy × chi phí/ảnh × độ trễ p95
-- Retrieval: precision@5 trên ~60 câu hỏi "bỏ đâu khi nào"
+- Retrieval: **hit@1 · hit@5 · MRR** trên ~60 câu hỏi "bỏ đâu khi nào".
+  ⚠️ Sửa so với bản đầu: **không dùng precision@5** — mỗi câu chỉ có 1–2 đoạn
+  đúng nên chỉ số đó trần cứng ở 0,2–0,4, đọc lên gây hiểu nhầm là hệ thống dở.
+  Đã có 18/60 câu ở `eval/retrieval_questions.py`, chạy bằng
+  `python eval/run_retrieval_eval.py`
 - Failure case: trình chiếu được **ảnh thật bị nhận sai** — lợi thế demo lớn nhất của đề này
 
 Ca khó thật cần có trong tập test: hộp sữa giấy tráng nhôm ↔ giấy · ly nhựa có màng ↔ nhựa tái chế · khay cơm dính dầu ↔ rác thực phẩm.
@@ -210,7 +214,7 @@ Ca khó thật cần có trong tập test: hộp sữa giấy tráng nhôm ↔ g
 | Backend | FastAPI + SQLAlchemy 2.x |
 | Auth | Tự làm: PBKDF2 + JWT (ADR-0004) |
 | DB | SQLite khi dev → PostgreSQL khi deploy |
-| Vector | JSON list trong SQLite → pgvector khi lên Postgres; truy hồi hybrid BM25 + embedding |
+| Vector | JSON list trong SQLite → pgvector khi lên Postgres; truy hồi hybrid BM25 + embedding. Embedding có **provider riêng** (`EMBEDDING_PROVIDER`) vì nơi sinh văn bản tốt chưa chắc có endpoint embedding dùng được |
 | Ảnh | Pillow (EXIF, nén) + OpenCV (làm mờ mặt) + imagehash (pHash) |
 | Frontend | Next.js 15 + Tailwind v4 + shadcn-style, ở `frontend/` |
 | Tracing | LangSmith (deliverable #4) |
@@ -248,6 +252,12 @@ model → có key chưa.
 56 ms/ảnh, nhanh hơn bản torch 8 lần (ADR-0007). Ngưỡng chấp nhận **chưa chuẩn
 lại** — chờ bộ 100 ảnh tự chụp.
 
+**RAG nay chạy hybrid thật.** Trước 02/08 phần embedding có code nhưng chưa
+từng được nối: `embed_chunks()` không được gọi ở đâu, 0/13 đoạn có vector, và
+`advise()` không truyền `query_embedding` — tức tài liệu ghi "hybrid" mà thực tế
+là thuần BM25. Nay đã nối, đo được, và trang Vận hành hiện rõ đang chạy chế độ
+nào.
+
 Toàn bộ `docs/PLAN_APP_DEPLOY.md` đã thực hiện xong phần code (ADR-0005). Phần
 còn lại là việc cần tài khoản của chủ dự án — xem mục 11.
 
@@ -275,7 +285,8 @@ mật khẩu chung `demo1234`. Màn đăng nhập có 3 nút vào thẳng.
 | Model | `src/services/vision/` | Gemini · OpenAI-compatible (OpenAI/OpenRouter/NVIDIA) · CLIP local — đổi provider chỉ bằng `.env` |
 | Định tuyến | `src/services/classifier.py` | T0 cache pHash → T0.5 CLIP → T1 → T2; escalate cả khi **nghi nguy hại**; **mỗi tầng một nhà cung cấp riêng** (ADR-0006) |
 | An toàn | `src/services/safety.py` | 3 nhóm chặn cứng, ngưỡng riêng nhóm nguy hại, lý do từ chối chọn từ danh sách cố định |
-| RAG | `src/services/rag.py` | hybrid BM25 + embedding, **lọc theo toà trước khi xếp hạng**, chạy được khi chưa có API key |
+| RAG | `src/services/rag.py` | hybrid BM25 + embedding, **lọc theo toà trước khi xếp hạng**, chạy được khi chưa có API key. Nhúng câu hỏi **có cache đĩa**; mất API thì tự lui về thuần BM25 |
+| Eval truy hồi | `eval/run_retrieval_eval.py`, `eval/retrieval_questions.py` | 18 câu có đáp án · hit@k + MRR · so BM25 với hybrid · quét được trọng số vector |
 | Thu gom + tuyến | `src/services/pickup.py`, `route_planner.py` | 3 điểm HITL, khối "vì sao gộp thế này", diff bản AI đề xuất ↔ bản người sửa |
 | Agent | `src/agents/` | graph `classify → advise → schedule`, nhánh skip vẫn ghi node để trace thấy đường không đi |
 | Vận hành | `src/services/metrics.py` | chi phí/độ trễ/lỗi tính từ dữ liệu thật, tách riêng bản ghi `is_seed` |

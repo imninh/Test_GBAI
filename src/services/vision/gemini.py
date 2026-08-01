@@ -117,20 +117,26 @@ class GeminiClient:
         cost, price_known = estimate_cost(model, tokens_in, tokens_out)
         return text, Usage(tokens_in=tokens_in, tokens_out=tokens_out, cost_usd=cost, price_known=price_known)
 
-    def embed(self, texts: list[str], model: str = "text-embedding-004") -> list[list[float]]:
+    def embed(self, texts: list[str], model: str = "gemini-embedding-001", dimensions: int = 0) -> list[list[float]]:
         """Sinh embedding cho kho tri thức RAG.
 
-        Trả về danh sách rỗng nếu chưa có key — RAG sẽ tự lui về xếp hạng từ
-        khoá thay vì làm hỏng cả luồng.
+        Args:
+            texts: các đoạn cần nhúng.
+            model: ``text-embedding-004`` **đã chết** (trả lỗi như các model 2.5
+                hôm 01/08), chỉ ``gemini-embedding-001`` còn dùng được — đo ngày
+                02/08/2026.
+            dimensions: cắt bớt số chiều (Matryoshka). 0 = giữ nguyên 3072.
+
+        Trả về danh sách rỗng nếu chưa có key hoặc gọi hỏng — RAG tự lui về xếp
+        hạng thuần từ khoá thay vì làm hỏng cả luồng.
         """
         if not self._api_key or not texts:
             return []
         url = f"{_BASE_URL}/models/{model}:batchEmbedContents?key={self._api_key}"
-        payload = {
-            "requests": [
-                {"model": f"models/{model}", "content": {"parts": [{"text": t}]}} for t in texts
-            ]
-        }
+        yeu_cau: dict = {"model": f"models/{model}", "content": {"parts": [{"text": ""}]}}
+        if dimensions:
+            yeu_cau["outputDimensionality"] = dimensions
+        payload = {"requests": [{**yeu_cau, "content": {"parts": [{"text": t}]}} for t in texts]}
         try:
             with httpx.Client(timeout=_TIMEOUT_SECONDS) as client:
                 response = client.post(url, json=payload)

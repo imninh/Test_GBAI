@@ -233,6 +233,15 @@ export interface OpsMetrics {
     local_model_runtime: string;
     prompt_version: string;
   };
+  retrieval: {
+    /** "hybrid" = BM25 + embedding · "bm25" = thuần từ khoá. */
+    che_do: string;
+    chunks_co_embedding: number;
+    chunks_tong: number;
+    embedding_provider: string;
+    embedding_model: string;
+    vector_weight: number;
+  };
   known_limitations: string[];
   has_seed_data: boolean;
   seed_count: number;

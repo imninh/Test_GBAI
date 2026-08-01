@@ -16,11 +16,14 @@ không có đường dẫn về văn bản gốc là khối thiết kế sai (FR
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
@@ -212,14 +215,22 @@ def retrieve(
             raw.append(cosine(query_embedding, chunk.embedding or []))
         vector_scores = _normalize_scores(raw)
 
-    # Trọng số nghiêng về từ khoá vì kho nhỏ và câu hỏi rất cụ thể ("bỏ pin ở
-    # đâu"); embedding đóng vai trò bắt các cách diễn đạt khác.
+    # Trọng số nghiêng về từ khoá vì kho nhỏ và nhiều câu hỏi rất cụ thể ("bỏ
+    # pin ở đâu"); embedding đóng vai trò bắt các cách diễn đạt khác. Chỉnh được
+    # qua ``RAG_VECTOR_WEIGHT`` — xem ghi chú ở ``config.py`` về việc vì sao chưa
+    # đổi mặc dù phép quét gợi ý một con số cao hơn.
+    #
+    # Không có vector (chưa nhúng kho, hoặc nhúng câu hỏi hỏng) thì **xếp hạng
+    # thuần BM25**, không phải trả về rỗng: truy hồi phải sống khi mất API.
+    trong_so = get_settings().rag_vector_weight
     has_vector = any(v > 0 for v in vector_scores)
     for index, candidate in enumerate(candidates):
         candidate.bm25_score = keyword_scores[index]
         candidate.vector_score = vector_scores[index]
         candidate.score = (
-            0.65 * keyword_scores[index] + 0.35 * vector_scores[index] if has_vector else keyword_scores[index]
+            (1.0 - trong_so) * keyword_scores[index] + trong_so * vector_scores[index]
+            if has_vector
+            else keyword_scores[index]
         )
 
     ranked = sorted(candidates, key=lambda c: c.score, reverse=True)
@@ -275,7 +286,15 @@ def advise(
     làm hỏng cả luồng (FRONTEND_SPEC mục 6, trạng thái 4).
     """
     search_text = " ".join(filter(None, [item_name, category.name if category else "", query]))
-    chunks = retrieve(session, search_text, building_id=building_id, top_k=top_k)
+    # Chỉ nhúng câu hỏi khi kho quy định thật sự có vector để so — không thì đó
+    # là một lệnh gọi API tiêu quota mà không đổi lấy gì. Bản thân lệnh gọi này
+    # cũng có cache đĩa nên món rác hỏi lại lần hai là miễn phí.
+    query_embedding: list[float] = []
+    if so_doan_co_embedding(session)[0] > 0:
+        query_embedding = embed_query(search_text)
+    chunks = retrieve(
+        session, search_text, building_id=building_id, top_k=top_k, query_embedding=query_embedding
+    )
 
     result = AdviceResult(sources=chunks)
     if not chunks:
@@ -329,36 +348,97 @@ def advise(
 # --- Chỉ mục embedding ----------------------------------------------------
 
 
-def embed_chunks(session: Session, *, limit: int = 200) -> int:
-    """Tính embedding cho các đoạn chưa có. Trả về số đoạn đã xử lý.
+def embed_texts(texts: list[str]) -> list[list[float]]:
+    """Nhúng một loạt đoạn văn. Trả về ``[]`` nếu không nhúng được.
 
-    Không có API key thì trả về 0 và hệ thống chạy thuần BM25 — mất một phần
-    chất lượng truy hồi nhưng không ai bị chặn.
+    Embedding dùng **nhà cung cấp riêng** (``EMBEDDING_PROVIDER``), không đi
+    theo tầng ``text``: nơi sinh văn bản tốt chưa chắc có endpoint embedding
+    dùng được. Đo 02/08/2026: NVIDIA không trả về vector qua đường
+    OpenAI-compatible, nên nếu tầng ``text`` chạy NVIDIA mà embedding cũng bám
+    theo thì phần vector của RAG chết lặng.
+
+    Rỗng là một kết quả hợp lệ, không phải lỗi: :func:`retrieve` tự chạy thuần
+    BM25 khi không có vector.
     """
     settings = get_settings()
-    pending = session.scalars(select(KnowledgeChunk).limit(limit)).all()
-    pending = [c for c in pending if not c.embedding]
+    model = settings.resolve_embedding_model()
+    if not texts or not model:
+        return []
+
+    provider = settings.resolve_embedding_provider()
+    try:
+        from src.services.vision import build_client_for
+
+        client = build_client_for(provider)
+        # Gemini có endpoint embedding riêng và nhận thêm số chiều; nhánh
+        # OpenAI-compatible chỉ nhận tên model.
+        if provider == "gemini":
+            return client.embed(texts, model, settings.embedding_dimensions)  # type: ignore[attr-defined]
+        return client.embed(texts, model)  # type: ignore[attr-defined]
+    except (VisionUnavailableError, AttributeError):
+        return []
+
+
+def _duong_dan_cache(text: str) -> Path:
+    settings = get_settings()
+    khoa = f"{settings.resolve_embedding_provider()}|{settings.resolve_embedding_model()}|{settings.embedding_dimensions}|{text}"
+    ten = hashlib.sha256(khoa.encode("utf-8")).hexdigest()[:32]
+    return Path(settings.llm_cache_dir) / "embeddings" / f"{ten}.json"
+
+
+def embed_query(text: str) -> list[float]:
+    """Nhúng câu hỏi, **có cache trên đĩa theo hash đầu vào**.
+
+    Đây là chỗ duy nhất trong luồng thường phải gọi embedding theo từng request,
+    nên nó cũng là chỗ tốn quota. Trong chung cư, cùng một món rác được hỏi đi
+    hỏi lại rất nhiều ("hộp sữa giấy", "pin cũ"), nên cache đĩa cắt gần hết
+    lượng gọi lặp — đúng yêu cầu ở ``CLAUDE.md`` mục 9.
+
+    Trả về ``[]`` khi không nhúng được; người gọi coi đó là "chạy thuần BM25".
+    """
+    text = (text or "").strip()
+    if not text:
+        return []
+
+    duong_dan = _duong_dan_cache(text)
+    try:
+        if duong_dan.exists():
+            return json.loads(duong_dan.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        pass  # cache hỏng thì tính lại, không làm hỏng luồng
+
+    vectors = embed_texts([text])
+    vector = vectors[0] if vectors else []
+    if vector:
+        try:
+            duong_dan.parent.mkdir(parents=True, exist_ok=True)
+            duong_dan.write_text(json.dumps(vector), encoding="utf-8")
+        except OSError:
+            pass  # không ghi được cache thì thôi, không phải lỗi của người dùng
+    return vector
+
+
+def embed_chunks(session: Session, *, limit: int = 500) -> int:
+    """Tính embedding cho các đoạn quy định chưa có. Trả về số đoạn đã xử lý.
+
+    Gọi lại nhiều lần vô hại: đoạn nào có vector rồi thì bỏ qua. Không nhúng
+    được thì trả 0 và hệ thống chạy thuần BM25 — mất một phần chất lượng truy
+    hồi nhưng không ai bị chặn.
+    """
+    pending = [c for c in session.scalars(select(KnowledgeChunk).limit(limit)).all() if not c.embedding]
     if not pending:
         return 0
 
-    texts = [f"{c.section} {c.content}" for c in pending]
-    vectors: list[list[float]] = []
-    try:
-        from src.services.vision import get_tier_provider, get_vision_client
-
-        # Embedding đi cùng nhà cung cấp của tầng ``text``; Gemini có endpoint
-        # embedding riêng nên chữ ký hàm khác hai nhà cung cấp còn lại.
-        client = get_vision_client("text")
-        if get_tier_provider("text") == "gemini":
-            vectors = client.embed(texts)  # type: ignore[attr-defined]
-        else:
-            vectors = client.embed(texts, settings.embedding_model)  # type: ignore[attr-defined]
-    except (VisionUnavailableError, AttributeError):
-        return 0
-
+    vectors = embed_texts([f"{c.section} {c.content}" for c in pending])
     if len(vectors) != len(pending):
         return 0
     for chunk, vector in zip(pending, vectors, strict=True):
         chunk.embedding = vector
     session.commit()
     return len(pending)
+
+
+def so_doan_co_embedding(session: Session) -> tuple[int, int]:
+    """``(số đoạn đã có vector, tổng số đoạn)`` — cho trang Vận hành."""
+    rows = session.scalars(select(KnowledgeChunk)).all()
+    return sum(1 for c in rows if c.embedding), len(rows)

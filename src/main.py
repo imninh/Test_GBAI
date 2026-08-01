@@ -25,6 +25,8 @@ async def lifespan(app: FastAPI):
         _nap_du_lieu_nen(demo=settings.seed_demo_on_start)
     if settings.local_model_enabled:
         _nap_truoc_model_local()
+    if settings.embed_kb_on_start:
+        _nhung_kho_quy_dinh()
     # In cả ba tầng vì chúng có thể nằm ở ba nhà cung cấp khác nhau — nhìn log
     # khởi động là biết ngay tầng nào đang trỏ đi đâu.
     logger.info(
@@ -39,6 +41,36 @@ async def lifespan(app: FastAPI):
     )
     yield
     logger.info("GreenBin AI đã dừng")
+
+
+def _nhung_kho_quy_dinh() -> None:
+    """Tính embedding cho kho quy định, chạy nền.
+
+    Máy chủ deploy không có chỗ chạy tay ``scripts/seed.py --embed``, mà kho chỉ
+    vài chục đoạn nên một lệnh gọi là xong. Gọi lại nhiều lần vô hại: đoạn nào
+    có vector rồi thì bỏ qua. Chạy ở luồng riêng vì nó đụng mạng — không được
+    làm chậm lúc máy chủ bật.
+    """
+    import threading
+
+    def chay() -> None:
+        try:
+            from src.db.session import session_scope
+            from src.services.rag import embed_chunks, so_doan_co_embedding
+
+            with session_scope() as session:
+                them = embed_chunks(session)
+                co, tong = so_doan_co_embedding(session)
+            if them:
+                logger.info("Đã nhúng thêm %d đoạn quy định (%d/%d đoạn có vector).", them, co, tong)
+            elif co < tong:
+                logger.warning(
+                    "Không nhúng được kho quy định (%d/%d đoạn có vector) — RAG chạy thuần BM25.", co, tong
+                )
+        except (OSError, RuntimeError, ValueError) as exc:
+            logger.warning("Bỏ qua bước nhúng kho quy định: %s. RAG chạy thuần BM25.", exc)
+
+    threading.Thread(target=chay, name="embed-kb", daemon=True).start()
 
 
 def _nap_truoc_model_local() -> None:

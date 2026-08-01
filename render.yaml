@@ -75,8 +75,20 @@ services:
         value: nvidia
       - key: VISION_PROVIDER_T2
         value: gemini
+      # Bước advise chạy sau MỌI lần phân loại thành công nên nó là chỗ tiêu
+      # quota nhanh nhất. Đo 02/08: llama-3.1-8b-instruct viết hướng dẫn tiếng
+      # Việt 1,5-2,2s, bám đúng nguồn — đủ tốt cho việc này.
       - key: VISION_PROVIDER_TEXT
+        value: nvidia
+
+      # Embedding đi đường riêng, KHÔNG bám theo tầng text: đo 02/08 thì NVIDIA
+      # không trả về vector qua endpoint OpenAI-compatible nào.
+      - key: EMBEDDING_PROVIDER
         value: gemini
+      # Tự nhúng kho quy định lúc khởi động — ở đây không có chỗ chạy tay
+      # `scripts/seed.py --embed`. Một lệnh gọi cho cả kho, gọi lại vô hại.
+      - key: EMBED_KB_ON_START
+        value: "true"
 
       # Điền trên bảng điều khiển. Thiếu key của tầng nào thì tầng đó dừng, các
       # tầng còn lại vẫn chạy — trang Vận hành chỉ rõ tầng nào đang thiếu.

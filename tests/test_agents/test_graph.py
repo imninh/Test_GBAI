@@ -22,14 +22,16 @@ def _khong_goi_llm_khi_tu_van(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(
         "src.services.vision.get_vision_client",
-        lambda: (_ for _ in ()).throw(VisionUnavailableError("test khong goi model")),
+        lambda tier="t1": (_ for _ in ()).throw(VisionUnavailableError("test khong goi model")),
     )
 
 
 def _dung_model_gia(monkeypatch: pytest.MonkeyPatch, *results) -> FakeVisionClient:
     fake = FakeVisionClient(results=list(results))
-    monkeypatch.setattr(classifier, "get_vision_client", lambda: fake)
-    monkeypatch.setattr(classifier, "get_tier_models", lambda: ("model-t1", "model-t2", "model-text"))
+    models = {"t1": "model-t1", "t2": "model-t2", "text": "model-text"}
+    monkeypatch.setattr(classifier, "get_vision_client", lambda tier="t1": fake)
+    monkeypatch.setattr(classifier, "get_tier_model", lambda tier="t1": models[tier])
+    monkeypatch.setattr(classifier, "get_tier_provider", lambda tier="t1": "fake")
     return fake
 
 

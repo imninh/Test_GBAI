@@ -298,11 +298,12 @@ def advise(
     )
 
     try:
-        from src.services.vision import get_tier_models, get_vision_client
+        from src.services.vision import get_tier_model, get_vision_client
 
-        client = get_vision_client()
-        _t1, _t2, model_text = get_tier_models()
-        text, usage = client.generate_text(prompt, model_text, max_tokens=400)  # type: ignore[attr-defined]
+        # Bước advise chạy sau MỌI lần phân loại thành công nên nó là chỗ tiêu
+        # quota nhanh nhất — cho nó nhà cung cấp riêng ở tầng ``text``.
+        client = get_vision_client("text")
+        text, usage = client.generate_text(prompt, get_tier_model("text"), max_tokens=400)  # type: ignore[attr-defined]
     except (VisionUnavailableError, AttributeError, ValueError):
         result.advice = _template_advice(category, chunks)
         result.generated_by = "template"
@@ -343,10 +344,12 @@ def embed_chunks(session: Session, *, limit: int = 200) -> int:
     texts = [f"{c.section} {c.content}" for c in pending]
     vectors: list[list[float]] = []
     try:
-        from src.services.vision import get_vision_client
+        from src.services.vision import get_tier_provider, get_vision_client
 
-        client = get_vision_client()
-        if settings.vision_provider == "gemini":
+        # Embedding đi cùng nhà cung cấp của tầng ``text``; Gemini có endpoint
+        # embedding riêng nên chữ ký hàm khác hai nhà cung cấp còn lại.
+        client = get_vision_client("text")
+        if get_tier_provider("text") == "gemini":
             vectors = client.embed(texts)  # type: ignore[attr-defined]
         else:
             vectors = client.embed(texts, settings.embedding_model)  # type: ignore[attr-defined]

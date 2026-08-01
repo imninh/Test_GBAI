@@ -223,8 +223,14 @@ export interface OpsMetrics {
     has_api_key: boolean;
     model_t1: string;
     model_t2: string;
+    model_text: string;
+    /** Mỗi tầng có thể chạy trên một nhà cung cấp khác nhau. */
+    tiers: { tier: string; label_vi: string; provider: string; model: string; has_api_key: boolean }[];
+    single_provider: boolean;
     local_model_enabled: boolean;
     local_model_loaded: boolean;
+    /** "onnx" = bản nén chạy trên máy chủ · "torch" = bản đầy đủ · "" = chưa nạp. */
+    local_model_runtime: string;
     prompt_version: string;
   };
   known_limitations: string[];

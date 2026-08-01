@@ -26,9 +26,13 @@ python-multipart>=0.0.20
 # Xác thực — tự làm auth thay vì Supabase, xem ADR-0004
 pyjwt>=2.10.0
 
-# Tầng T0.5 — CLIP zero-shot: xem requirements-local-model.txt.
-# torch chiếm 1,19 GB nên KHÔNG nằm ở đây: gói miễn phí của Render không đủ
-# dung lượng lẫn RAM. Bản deploy chạy LOCAL_MODEL_ENABLED=false.
+# Tầng T0.5 — CLIP zero-shot.
+#
+# `onnxruntime` chạy bản CLIP đã nén int8 (chỉ nửa ảnh, ~85 MB) nên tầng này
+# chạy được cả trên máy chủ 512 MB — xem ADR-0007. `torch` (1,19 GB) chỉ cần khi
+# muốn chạy bản đầy đủ ở máy dev hoặc khi xuất model: requirements-local-model.txt.
+onnxruntime>=1.19.0
+numpy>=1.26.0
 
 # Dev tools
 ruff>=0.8.0

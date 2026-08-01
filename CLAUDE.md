@@ -91,7 +91,9 @@ Chi tiết đầy đủ ở `docs/decisions/`. Tóm tắt:
 | Model nhẹ tự train (tầng T0.5) | **P1, quyết sau** | Khảo sát ở `docs/research/sota-model-nhe-phan-loai-rac.md`. Chỉ có giá trị khi đã có eval + T1 để làm mốc so sánh |
 | Database | **SQLite khi dev**, PostgreSQL khi deploy | Không cần Docker lúc dev; viết qua SQLAlchemy nên đổi `DATABASE_URL` là xong |
 | Vision model | **Lớp provider tách rời, đổi bằng `.env`** — mặc định Gemini, sẵn sàng OpenAI/OpenRouter/NVIDIA | Nhóm chưa có key OpenAI. **DeepSeek không nhận ảnh** nên không dùng được cho T1/T2. Định tuyến vẫn theo confidence và mức nguy hại, không đổi (01/08) |
+| Provider **theo từng tầng** | **T1 = NVIDIA · T2 = Gemini flash · advise = Gemini flash-lite** (`VISION_PROVIDER_T1/_T2/_TEXT`) | Free tier `gemini-flash-latest` chỉ **20 request/ngày**, mỗi lần chụp tiêu 2 → dồn cả hệ thống vào một nguồn thì 10 lần chụp là đứng. Trải theo tầng: mất một nguồn chỉ mất một tầng (ADR-0006) |
 | Tầng T0.5 model local | **CLIP zero-shot**, chạy CPU offline, không bao giờ chốt nhãn nhóm nguy hại | Không cần train, không cần dữ liệu gán nhãn; dùng đúng vai trò một cổng chặn rẻ đứng trước API trả phí (01/08) |
+| T0.5 trên bản deploy | **Nén còn nửa ảnh, int8** (`CLIP_RUNTIME=onnx`); bản torch đầy đủ giữ ở máy dev làm mốc đối chiếu | 88,7 MB · **185 MB RAM · 56 ms/ảnh** — vừa máy chủ 512 MB. Nửa chữ của CLIP tính sẵn một lần nên khỏi mã hoá lại mỗi ảnh. Đổi lại điểm số lệch (cosine 0,970–0,980) nên **ngưỡng phải chuẩn lại** (ADR-0007) |
 | Cache tầng 0 | **pHash ảnh** | Trong chung cư cùng loại vỏ hộp được chụp lại rất nhiều |
 | Điều phối tuyến | **Gộp theo toà + khung giờ** (P0), OR-Tools chỉ nếu dư thời gian | VRP đầy đủ là bẫy nuốt thời gian |
 | Gamification | **P2** | Vui nhưng không chứng minh năng lực AI |
@@ -204,7 +206,7 @@ Ca khó thật cần có trong tập test: hộp sữa giấy tráng nhôm ↔ g
 | Layer | Chọn |
 |---|---|
 | Agent | LangGraph (`classify_waste → advise → schedule_pickup`) |
-| LLM | **Lớp provider tách rời** ở `src/services/vision/` — Gemini · OpenAI-compatible (OpenAI/OpenRouter/NVIDIA) · CLIP local. Đổi bằng `VISION_PROVIDER` trong `.env` |
+| LLM | **Lớp provider tách rời** ở `src/services/vision/` — Gemini · OpenAI-compatible (OpenAI/OpenRouter/NVIDIA) · CLIP local. Đổi bằng `VISION_PROVIDER`; **khai riêng từng tầng** bằng `VISION_PROVIDER_T1/_T2/_TEXT` (ADR-0006) |
 | Backend | FastAPI + SQLAlchemy 2.x |
 | Auth | Tự làm: PBKDF2 + JWT (ADR-0004) |
 | DB | SQLite khi dev → PostgreSQL khi deploy |
@@ -232,11 +234,19 @@ Ca khó thật cần có trong tập test: hộp sữa giấy tráng nhôm ↔ g
 
 ## 10. Trạng thái hiện tại
 
-**Cập nhật 01/08/2026 (buổi 2) — Slice 2 xong: app cài được, mã đã sẵn sàng deploy.**
+**Cập nhật 02/08/2026 — cả 4 tầng đã chạy được trên hạ tầng miễn phí.**
 
 Backend FastAPI 44 route · agent LangGraph có trace · frontend Next.js 21 màn ·
-**76 test pass** · ruff sạch (2 cảnh báo còn lại nằm ở file mẫu của template) ·
-`tsc` sạch · export tĩnh ra `out/` sạch · **repo đã `git init`**.
+**105 test pass** · ruff sạch (3 cảnh báo còn lại nằm ở file mẫu của template và
+`attic/`) · `tsc` sạch · export tĩnh ra `out/` sạch · **repo đã `git init`**.
+
+**Định tuyến nay chạy đa nhà cung cấp:** T1 NVIDIA · T2 Gemini flash · advise
+Gemini flash-lite (ADR-0006). Trang Vận hành hiện bảng tầng → nhà cung cấp →
+model → có key chưa.
+
+**Tầng T0.5 vừa được máy chủ 512 MB** nhờ bản CLIP nén int8: 185 MB RAM ·
+56 ms/ảnh, nhanh hơn bản torch 8 lần (ADR-0007). Ngưỡng chấp nhận **chưa chuẩn
+lại** — chờ bộ 100 ảnh tự chụp.
 
 Toàn bộ `docs/PLAN_APP_DEPLOY.md` đã thực hiện xong phần code (ADR-0005). Phần
 còn lại là việc cần tài khoản của chủ dự án — xem mục 11.
@@ -263,7 +273,7 @@ mật khẩu chung `demo1234`. Màn đăng nhập có 3 nút vào thẳng.
 | Dữ liệu nền | `src/db/seed_data.py`, `scripts/seed.py` | 9 nhóm rác, 3 toà, 8 tài khoản, lịch thu gom, 5 tài liệu quy định |
 | Ảnh | `src/services/image.py` | tước EXIF, làm mờ mặt (Haar), nén 512px, pHash · **có test khẳng định EXIF đã sạch** |
 | Model | `src/services/vision/` | Gemini · OpenAI-compatible (OpenAI/OpenRouter/NVIDIA) · CLIP local — đổi provider chỉ bằng `.env` |
-| Định tuyến | `src/services/classifier.py` | T0 cache pHash → T0.5 CLIP → T1 → T2; escalate cả khi **nghi nguy hại** |
+| Định tuyến | `src/services/classifier.py` | T0 cache pHash → T0.5 CLIP → T1 → T2; escalate cả khi **nghi nguy hại**; **mỗi tầng một nhà cung cấp riêng** (ADR-0006) |
 | An toàn | `src/services/safety.py` | 3 nhóm chặn cứng, ngưỡng riêng nhóm nguy hại, lý do từ chối chọn từ danh sách cố định |
 | RAG | `src/services/rag.py` | hybrid BM25 + embedding, **lọc theo toà trước khi xếp hạng**, chạy được khi chưa có API key |
 | Thu gom + tuyến | `src/services/pickup.py`, `route_planner.py` | 3 điểm HITL, khối "vì sao gộp thế này", diff bản AI đề xuất ↔ bản người sửa |
@@ -271,7 +281,8 @@ mật khẩu chung `demo1234`. Màn đăng nhập có 3 nút vào thẳng.
 | Vận hành | `src/services/metrics.py` | chi phí/độ trễ/lỗi tính từ dữ liệu thật, tách riêng bản ghi `is_seed` |
 | API | `src/api/` | đúng hợp đồng `FRONTEND_SPEC.md` mục 7, khuôn lỗi `{error:{code,message_vi}}` |
 | Frontend | `frontend/` | Next.js 15 + Tailwind v4 + shadcn-style, design token rút từ `original/GreenBin AI.dc.html` |
-| ADR | `docs/decisions/0004-...md`, `0005-...md` | tự làm auth thay Supabase · PWA + Capacitor thay vì viết lại native |
+| ADR | `docs/decisions/0004-...md` → `0007-...md` | tự làm auth thay Supabase · PWA + Capacitor thay vì viết lại native · provider theo từng tầng · T0.5 chạy ONNX int8 |
+| T0.5 dạng nén | `scripts/export_clip_onnx.py`, `src/services/vision/local_clip.py` | xuất một lần trên máy có torch (hoặc Colab) → 2 file 89 MB đính GitHub Release; máy chủ tải qua `CLIP_ASSETS_URL`. Mã băm bộ câu mô tả chốt chặn việc dùng nhầm dãy số cũ |
 | Linh vật | `scripts/build_assets.py`, `frontend/public/mascot/` | 3 tư thế × 3 bề rộng WebP (2,3 MB → 22–80 KB) · `Mascot` nhận prop `tuThe`, giữ SVG làm ảnh dự phòng |
 | PWA | `frontend/public/sw.js`, `manifest.webmanifest` | service worker viết tay · **lịch thu gom xem được offline** · không bao giờ cache ảnh cư dân hay endpoint có token |
 | App Android | `frontend/capacitor.config.ts`, `frontend/android/` | `output: "export"` → `out/` → Capacitor · camera gói trong `src/lib/platform.ts` |
@@ -280,11 +291,12 @@ mật khẩu chung `demo1234`. Màn đăng nhập có 3 nút vào thẳng.
 
 ### Chưa có / đang chặn
 
-- ⛔ **Chưa có API key vision.** Đây là việc chặn duy nhất của luồng chụp ảnh.
-  Mọi phần khác chạy không cần key. **DeepSeek không nhận ảnh** nên không dùng
-  được cho T1/T2 — chỉ dùng được cho phần text.
-- Chưa có repo GitHub, chưa `.env`, chưa chạy `scripts/setup_hooks.ps1` → AI
-  logging (deliverable #4) vẫn chưa chạy. `git init` đã xong nên hết vướng.
+- ✅ **Đã có key Gemini và NVIDIA** trong `.env` máy dev; luồng chụp ảnh chạy
+  thật. **DeepSeek không nhận ảnh** nên vẫn không dùng được cho T1/T2.
+  ⛔ Trên **Render mới chỉ có `GEMINI_API_KEY`** — thiếu `NVIDIA_API_KEY` và ba
+  biến `VISION_PROVIDER_*` nên bản deploy vẫn dồn mọi tầng vào Gemini.
+- Repo GitHub đã có, `.env` đã có. Chưa chạy `scripts/setup_hooks.ps1` → AI
+  logging (deliverable #4) vẫn chưa chạy.
 - Chưa có bộ ảnh thật và chưa chạy `eval/` → số liệu trang Chất lượng AI hiện
   đang là **dữ liệu demo mô phỏng**, có gắn nhãn rõ trên UI.
 - Chưa phỏng vấn lao công + BQL — vẫn là chỗ yếu nhất của ADR-0002/0003.
@@ -310,8 +322,11 @@ mật khẩu chung `demo1234`. Màn đăng nhập có 3 nút vào thẳng.
 > backend https://greenbin-api-hozl.onrender.com · web https://test-gbai-gray.vercel.app
 > · repo https://github.com/imninh/Test_GBAI · CI xanh.
 >
-> ⚠️ **Bản deploy chỉ chạy 2/4 tầng**: T0.5 tắt (thiếu RAM cho torch), T2 hỏng
-> (cạn quota Gemini). Hướng 3 là cách sửa — xem bàn giao mục 5.
+> ⚠️ **Bản deploy đang chạy 2/4 tầng, mã đã sẵn cho 4/4.** Cả hai việc chặn đều
+> đã xử lý xong ở máy dev — còn lại là thao tác trên bảng điều khiển Render:
+> 1. `NVIDIA_API_KEY` + `VISION_PROVIDER_T1/_T2/_TEXT` → T2 sống lại (ADR-0006);
+> 2. `CLIP_ASSETS_URL` trỏ vào bộ ONNX đính trong GitHub Release → T0.5 sống
+>    lại (ADR-0007, các bước ở `docs/HUONG_DAN_DEPLOY.md`).
 
 0. **Đưa sản phẩm lên mạng** — làm theo **[`docs/HUONG_DAN_DEPLOY.md`](docs/HUONG_DAN_DEPLOY.md)**
    (checklist đầy đủ kèm mục gỡ lỗi). Tóm tắt thứ tự, vì URL bị nướng vào lúc build:

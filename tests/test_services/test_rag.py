@@ -91,7 +91,7 @@ def test_advise_khong_goi_duoc_model_thi_lui_ve_huong_dan_chuan(
     """Trạng thái suy giảm một phần: vẫn trả lời được, và nói rõ là đang suy giảm."""
     from src.services.vision import VisionUnavailableError
 
-    def khong_co_key():
+    def khong_co_key(tier: str = "text"):
         raise VisionUnavailableError("Chưa cấu hình API key", code="VISION-401")
 
     monkeypatch.setattr("src.services.vision.get_vision_client", khong_co_key)
@@ -118,7 +118,7 @@ def test_advise_khong_truy_hoi_duoc_thi_bao_suy_giam(
 
     monkeypatch.setattr(
         "src.services.vision.get_vision_client",
-        lambda: (_ for _ in ()).throw(VisionUnavailableError("khong co key")),
+        lambda tier="text": (_ for _ in ()).throw(VisionUnavailableError("khong co key")),
     )
     category = db_session.scalar(select(WasteCategory).where(WasteCategory.code == "organic"))
 

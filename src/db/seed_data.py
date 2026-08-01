@@ -401,7 +401,9 @@ KNOWN_LIMITATIONS: list[str] = [
     "Khối lượng do AI ước lượng có sai số lớn (±40%) — chỉ dùng để gợi ý, đội vệ sinh cân lại tại chỗ.",
     "Dữ liệu demo là dữ liệu mô phỏng và ảnh tự chụp, không phải dữ liệu cư dân thật.",
     "Bản demo trên hạ tầng miễn phí lưu ảnh trên đĩa tạm — ảnh đã tải lên sẽ mất khi máy chủ khởi động lại.",
-    "Tầng T0.5 (model local CLIP) tắt trên bản deploy vì máy chủ miễn phí không đủ bộ nhớ; ảnh đi thẳng lên tầng T1.",
+    "Tầng T0.5 trên bản deploy chạy bản CLIP đã nén (int8) để vừa bộ nhớ máy chủ miễn phí. "
+    "Bản nén cho điểm số lệch so với bản đầy đủ, và ngưỡng chấp nhận CHƯA được chuẩn lại "
+    "trên bộ ảnh thật — bảng Cấu hình model bên dưới cho biết đang chạy bản nào.",
 ]
 
 # Lý do từ chối yêu cầu thu gom — danh sách cố định, không cho gõ tự do, để dữ

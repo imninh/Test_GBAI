@@ -157,15 +157,7 @@ class OpenAICompatibleClient:
 
 def build_openai_compatible_client(provider: str) -> OpenAICompatibleClient:
     settings = get_settings()
-    keys = {
-        "openai": settings.openai_api_key,
-        "openrouter": settings.openrouter_api_key,
-        "nvidia": settings.nvidia_api_key,
-        "deepseek": settings.deepseek_api_key,
-    }
-    from src.config import OPENAI_COMPATIBLE_BASE_URLS
-
-    base_url = OPENAI_COMPATIBLE_BASE_URLS.get(provider, "")
+    base_url = settings.base_url_for(provider)
     if not base_url:
         raise VisionUnavailableError(f"Không biết nhà cung cấp '{provider}'.", code="VISION-400")
-    return OpenAICompatibleClient(provider, base_url, keys.get(provider, ""))
+    return OpenAICompatibleClient(provider, base_url, settings.api_key_for(provider))

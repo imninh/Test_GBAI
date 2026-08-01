@@ -4,6 +4,12 @@ Nguyên tắc: **đổi nhà cung cấp model chỉ bằng sửa ``.env``, khôn
 Nhóm chưa có API key OpenAI nên tầng T1/T2 tạm chạy trên Gemini / OpenRouter /
 NVIDIA NIM; khi có key OpenAI thì đổi ``VISION_PROVIDER=openai`` là xong, kiến
 trúc định tuyến 3 tầng ở ``CLAUDE.md`` mục 4 giữ nguyên.
+
+**Provider khai được theo từng tầng.** ``VISION_PROVIDER`` là mặc định chung;
+``VISION_PROVIDER_T1`` / ``_T2`` / ``_TEXT`` ghi đè cho riêng một tầng. Lý do:
+mỗi nhà cung cấp miễn phí có một kiểu hạn mức khác nhau (Gemini tính theo số
+request rất ít, NVIDIA tính theo credit rộng hơn, CLIP local thì không tốn gì),
+nên trộn chúng lại thì cạn quota một chỗ không làm chết cả sản phẩm.
 """
 
 from functools import lru_cache
@@ -13,6 +19,12 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 VisionProvider = Literal["gemini", "openai", "openrouter", "nvidia", "local_only"]
+
+# Ba tầng có gọi model đám mây. T0 (cache pHash) và T0.5 (CLIP local) không gọi
+# nên không nằm ở đây.
+ModelTier = Literal["t1", "t2", "text"]
+
+_TIER_INDEX: dict[str, int] = {"t1": 0, "t2": 1, "text": 2}
 
 # Điểm cuối của các nhà cung cấp dùng giao thức tương thích OpenAI.
 OPENAI_COMPATIBLE_BASE_URLS: dict[str, str] = {
@@ -32,6 +44,30 @@ MODEL_PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
     "openai/gpt-4o-mini": (0.15, 0.60),
     "openai/gpt-4o": (2.50, 10.00),
     "text-embedding-3-small": (0.02, 0.0),
+}
+
+# Model mặc định ``(T1, T2, text)`` của từng nhà cung cấp, dùng khi ``.env``
+# không khai tên model cụ thể.
+PROVIDER_DEFAULT_MODELS: dict[str, tuple[str, str, str]] = {
+    "openai": ("gpt-4o-mini", "gpt-4o", "gpt-4o-mini"),
+    "openrouter": ("openai/gpt-4o-mini", "openai/gpt-4o", "openai/gpt-4o-mini"),
+    "nvidia": (
+        "meta/llama-3.2-11b-vision-instruct",
+        "meta/llama-3.2-90b-vision-instruct",
+        "meta/llama-3.1-8b-instruct",
+    ),
+    # Google đã đóng ``gemini-2.5-flash`` và ``gemini-2.5-pro`` với key tạo mới
+    # ("no longer available to new users", HTTP 404) — chúng vẫn hiện trong danh
+    # sách ``/models`` nên chỉ lộ ra lúc gọi thật. Bí danh ``*-latest`` không bị
+    # khoá và tự trỏ sang bản mới nhất.
+    # Đo ngày 01/08/2026: `pro-latest` và `2.0-flash` trả 429 ngay từ lần gọi đầu
+    # trên free tier, nên T2 dùng `flash-latest`.
+    # Model sinh hướng dẫn dùng bản `lite`: hạn free tier của `gemini-flash-latest`
+    # (hiện trỏ tới gemini-3.6-flash) chỉ **20 request**, cạn sau vài phút thử.
+    # Bước advise chạy sau MỌI lần phân loại thành công nên nó là chỗ tiêu quota
+    # nhanh nhất — để nó ở model đắt là hết quota giữa buổi demo.
+    "gemini": ("gemini-flash-lite-latest", "gemini-flash-latest", "gemini-flash-lite-latest"),
+    "local_only": ("", "", ""),
 }
 
 
@@ -69,7 +105,17 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = Field(default=60 * 12, ge=5)
 
     # --- Nhà cung cấp model vision ---------------------------------------
+    # Mặc định chung cho mọi tầng.
     vision_provider: VisionProvider = "gemini"
+
+    # Ghi đè cho riêng từng tầng. Để trống = dùng ``vision_provider``.
+    # Cấu hình đang khuyến nghị (mỗi nguồn miễn phí lo phần nó khoẻ nhất):
+    #   T1   → nvidia  (~1.000 credit, đủ cho phần lớn lưu lượng)
+    #   T2   → gemini  (quota nhỏ nhưng chỉ tiêu vào ca khó)
+    #   text → gemini  (bản lite, quota còn dư)
+    vision_provider_t1: str = ""
+    vision_provider_t2: str = ""
+    vision_provider_text: str = ""
 
     openai_api_key: str = ""
     gemini_api_key: str = ""
@@ -97,6 +143,15 @@ class Settings(BaseSettings):
     # CLIP zero-shot: không cần train, không cần dữ liệu gán nhãn. Tải một lần
     # (~350MB) rồi chạy hoàn toàn offline.
     clip_model_name: str = "openai/clip-vit-base-patch32"
+    # Đường chạy tầng T0.5 (ADR-0007):
+    #   auto  — có bộ ONNX int8 thì dùng, không thì lui về torch
+    #   onnx  — chỉ ONNX; máy chủ 512 MB dùng cái này
+    #   torch — chỉ bản đầy đủ, giữ làm mốc đối chiếu khi chạy eval
+    clip_runtime: Literal["auto", "onnx", "torch"] = "auto"
+    clip_onnx_dir: str = "./assets/clip"
+    # Máy chủ miễn phí dùng đĩa tạm nên file model mất sau mỗi lần khởi động
+    # lại. Trỏ vào file .tar.gz trên GitHub Release để nó tự tải lại khi thiếu.
+    clip_assets_url: str = ""
     # Dưới ngưỡng này thì T0.5 không dám kết luận và đẩy lên T1.
     clip_accept_confidence: float = Field(default=0.82, ge=0.0, le=1.0)
     # Nhóm nguy hại không bao giờ được chốt bởi model local — luôn đẩy lên
@@ -150,49 +205,53 @@ class Settings(BaseSettings):
 
     @property
     def provider_api_key(self) -> str:
+        """Key của provider mặc định chung. Theo tầng thì dùng :meth:`api_key_for`."""
+        return self.api_key_for(self.vision_provider)
+
+    def api_key_for(self, provider: str) -> str:
+        """API key của một nhà cung cấp bất kỳ, không phụ thuộc provider đang chọn."""
         keys = {
             "openai": self.openai_api_key,
             "openrouter": self.openrouter_api_key,
             "nvidia": self.nvidia_api_key,
             "gemini": self.gemini_api_key,
+            "deepseek": self.deepseek_api_key,
             "local_only": "",
         }
-        return keys.get(self.vision_provider, "")
+        return keys.get(provider, "")
+
+    def base_url_for(self, provider: str) -> str:
+        """Điểm cuối của provider dùng giao thức OpenAI. Rỗng nếu không phải."""
+        return OPENAI_COMPATIBLE_BASE_URLS.get(provider, "")
+
+    def resolve_provider(self, tier: ModelTier) -> str:
+        """Nhà cung cấp phụ trách một tầng.
+
+        Khai riêng trong ``.env`` thì lấy khai báo riêng, không thì lui về
+        ``VISION_PROVIDER`` chung.
+        """
+        rieng = {
+            "t1": self.vision_provider_t1,
+            "t2": self.vision_provider_t2,
+            "text": self.vision_provider_text,
+        }
+        return (rieng[tier] or self.vision_provider).strip()
+
+    def resolve_model_for(self, tier: ModelTier) -> str:
+        """Tên model của một tầng, theo đúng provider phụ trách tầng đó.
+
+        Thứ tự ưu tiên: tên model khai thẳng trong ``.env`` → mặc định của
+        provider phụ trách tầng.
+        """
+        khai_bao = {"t1": self.vision_model_t1, "t2": self.vision_model_t2, "text": self.text_model}[tier]
+        if khai_bao:
+            return khai_bao
+        defaults = PROVIDER_DEFAULT_MODELS.get(self.resolve_provider(tier), ("", "", ""))
+        return defaults[_TIER_INDEX[tier]]
 
     def resolve_models(self) -> tuple[str, str, str]:
-        """Trả về ``(model_t1, model_t2, model_text)`` cho provider đang chọn.
-
-        Cho phép ghi đè từng cái qua ``.env``; phần để trống thì lấy mặc định
-        hợp lý của provider đó.
-        """
-        defaults: dict[str, tuple[str, str, str]] = {
-            "openai": ("gpt-4o-mini", "gpt-4o", "gpt-4o-mini"),
-            "openrouter": ("openai/gpt-4o-mini", "openai/gpt-4o", "openai/gpt-4o-mini"),
-            "nvidia": (
-                "meta/llama-3.2-11b-vision-instruct",
-                "meta/llama-3.2-90b-vision-instruct",
-                "meta/llama-3.1-8b-instruct",
-            ),
-            # Google đã đóng ``gemini-2.5-flash`` và ``gemini-2.5-pro`` với key
-            # tạo mới ("no longer available to new users", HTTP 404) — chúng vẫn
-            # hiện trong danh sách ``/models`` nên chỉ lộ ra lúc gọi thật. Bí
-            # danh ``*-latest`` không bị khoá và tự trỏ sang bản mới nhất.
-            # Đo ngày 01/08/2026: `pro-latest` và `2.0-flash` trả 429 ngay từ
-            # lần gọi đầu trên free tier, nên T2 dùng `flash-latest`.
-            # Model sinh hướng dẫn dùng bản `lite`: hạn free tier của
-            # `gemini-flash-latest` (hiện trỏ tới gemini-3.6-flash) chỉ **20
-            # request**, cạn sau vài phút thử. Bước advise chạy sau MỌI lần phân
-            # loại thành công nên nó là chỗ tiêu quota nhanh nhất — để nó ở model
-            # đắt là hết quota giữa buổi demo.
-            "gemini": ("gemini-flash-lite-latest", "gemini-flash-latest", "gemini-flash-lite-latest"),
-            "local_only": ("", "", ""),
-        }
-        t1, t2, text = defaults.get(self.vision_provider, ("", "", ""))
-        return (
-            self.vision_model_t1 or t1,
-            self.vision_model_t2 or t2,
-            self.text_model or text,
-        )
+        """``(model_t1, model_t2, model_text)`` — lớp bọc quanh :meth:`resolve_model_for`."""
+        return (self.resolve_model_for("t1"), self.resolve_model_for("t2"), self.resolve_model_for("text"))
 
 
 @lru_cache

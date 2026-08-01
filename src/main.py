@@ -25,7 +25,18 @@ async def lifespan(app: FastAPI):
         _nap_du_lieu_nen(demo=settings.seed_demo_on_start)
     if settings.local_model_enabled:
         _nap_truoc_model_local()
-    logger.info("GreenBin AI khởi động — môi trường %s, provider %s", settings.app_env, settings.vision_provider)
+    # In cả ba tầng vì chúng có thể nằm ở ba nhà cung cấp khác nhau — nhìn log
+    # khởi động là biết ngay tầng nào đang trỏ đi đâu.
+    logger.info(
+        "GreenBin AI khởi động — môi trường %s · T1=%s(%s) · T2=%s(%s) · text=%s(%s)",
+        settings.app_env,
+        settings.resolve_provider("t1"),
+        settings.resolve_model_for("t1"),
+        settings.resolve_provider("t2"),
+        settings.resolve_model_for("t2"),
+        settings.resolve_provider("text"),
+        settings.resolve_model_for("text"),
+    )
     yield
     logger.info("GreenBin AI đã dừng")
 

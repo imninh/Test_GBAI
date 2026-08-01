@@ -7,6 +7,9 @@
 | ``t1_mini`` | model vision rẻ — phần lớn lưu lượng | thấp |
 | ``t2_full`` | confidence thấp **hoặc nghi rác nguy hại** | cao |
 
+Mỗi tầng đọc nhà cung cấp riêng từ cấu hình, nên T1 chạy được trên NVIDIA trong
+khi T2 chạy Gemini — hết quota một nơi không làm đứng cả sản phẩm.
+
 Module này chỉ lo *chọn tầng nào và có dám trả lời không*. Việc tra quy định
 của toà nằm ở :mod:`src.services.rag`, việc ghi bản ghi nằm ở lớp API.
 
@@ -22,7 +25,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.config import get_settings
+from src.config import ModelTier, get_settings
 from src.db.models import Classification, Media, WasteCategory
 from src.services import safety
 from src.services.image import phash_distance
@@ -32,7 +35,8 @@ from src.services.vision import (
     VisionResult,
     VisionUnavailableError,
     classify_image_local,
-    get_tier_models,
+    get_tier_model,
+    get_tier_provider,
     get_vision_client,
 )
 
@@ -311,9 +315,19 @@ def classify_waste(
                 return _finalize(outcome, text_query)
 
     # --- Bước 4: T1 → (nếu cần) T2 ---
-    model_t1, model_t2, model_text = get_tier_models()
+    # Mỗi tầng có nhà cung cấp riêng (xem ``config.resolve_provider``): T1 có
+    # thể chạy NVIDIA trong khi T2 chạy Gemini. Vì vậy phải lấy client theo
+    # tầng, không dùng chung một client cho cả hai — cạn quota một nhà cung cấp
+    # thì tầng còn lại vẫn sống.
+    # Hỏi bằng chữ đi theo cấu hình tầng ``text``; không khai thì lui về T1.
+    first_tier: ModelTier = "t1" if image_bytes is not None else ("text" if get_tier_model("text") else "t1")
+    model_first = get_tier_model(first_tier)
+    provider_first = get_tier_provider(first_tier)
+    model_t2 = get_tier_model("t2")
+    provider_t2 = get_tier_provider("t2")
+
     try:
-        client = get_vision_client()
+        client = get_vision_client(first_tier)
     except VisionUnavailableError as exc:
         outcome.nodes.append(NodeMetric(node="classify_waste", status="error", error_type=exc.code))
         outcome.latency_ms = int((time.perf_counter() - started) * 1000)
@@ -322,9 +336,9 @@ def classify_waste(
     step = time.perf_counter()
     try:
         if image_bytes is not None:
-            result = client.classify_image(image_bytes, categories, model_t1)
+            result = client.classify_image(image_bytes, categories, model_first)
         else:
-            result = client.classify_text(text_query, categories, model_text or model_t1)
+            result = client.classify_text(text_query, categories, model_first)
     except (VisionUnavailableError, ValueError) as exc:
         code = getattr(exc, "code", "VISION-500")
         outcome.nodes.append(
@@ -354,6 +368,7 @@ def classify_waste(
             llm_calls=1,
             meta={
                 "tier": TIER_T1,
+                "provider": result.provider or provider_first,
                 "model": result.model,
                 "confidence": round(result.confidence, 4),
                 "nguong_nhom": round(outcome.min_confidence, 4),
@@ -364,14 +379,21 @@ def classify_waste(
     escalation = safety.should_escalate_to_t2(
         outcome.confidence, outcome.min_confidence, result.suspect_hazardous, result.quality_issue
     )
-    if escalation and model_t2 and model_t2 != model_t1:
+    # Cùng model **trên cùng một nhà cung cấp** thì gọi lại chỉ tốn tiền mà không
+    # có ý kiến thứ hai. Khác nhà cung cấp thì dù trùng tên model vẫn là hai
+    # đường độc lập, vẫn đáng gọi.
+    t2_khac_t1 = (provider_t2, model_t2) != (provider_first, model_first)
+    if escalation and model_t2 and t2_khac_t1:
         outcome.escalation_reason = escalation
         step = time.perf_counter()
         try:
+            # Client T2 dựng ngay tại đây: provider của T2 có thể khác T1 và có
+            # thể thiếu key, lỗi đó phải rơi vào cùng nhánh "T2 hỏng" bên dưới.
+            client_t2 = get_vision_client("t2")
             if image_bytes is not None:
-                result_t2 = client.classify_image(image_bytes, categories, model_t2)
+                result_t2 = client_t2.classify_image(image_bytes, categories, model_t2)
             else:
-                result_t2 = client.classify_text(text_query, categories, model_t2)
+                result_t2 = client_t2.classify_text(text_query, categories, model_t2)
         except (VisionUnavailableError, ValueError) as exc:
             # T2 lỗi thì giữ kết quả T1 và để bước kiểm ngưỡng bên dưới quyết
             # định — không được im lặng nâng cấp độ tin cậy.
@@ -382,6 +404,7 @@ def classify_waste(
                     duration_ms=int((time.perf_counter() - step) * 1000),
                     llm_calls=1,
                     error_type=getattr(exc, "code", "VISION-500"),
+                    meta={"provider": provider_t2, "model": model_t2},
                 )
             )
         else:
@@ -399,6 +422,7 @@ def classify_waste(
                     llm_calls=1,
                     meta={
                         "tier": TIER_T2,
+                        "provider": result_t2.provider or provider_t2,
                         "model": result_t2.model,
                         "ly_do_escalate": escalation,
                         "confidence": round(result_t2.confidence, 4),

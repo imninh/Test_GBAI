@@ -22,10 +22,26 @@ def _tat_model_local(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(classifier, "classify_image_local", lambda *a, **k: None)
 
 
-def _dung_model_gia(monkeypatch: pytest.MonkeyPatch, *results) -> FakeVisionClient:
+_MODEL_GIA: dict[str, str] = {"t1": "model-t1", "t2": "model-t2", "text": "model-text"}
+
+
+def _dung_model_gia(
+    monkeypatch: pytest.MonkeyPatch,
+    *results,
+    theo_tang: dict[str, FakeVisionClient] | None = None,
+    nha_cung_cap: dict[str, str] | None = None,
+) -> FakeVisionClient:
+    """Thay lớp vision bằng model giả.
+
+    ``theo_tang`` cho mỗi tầng một client riêng — dùng khi test cấu hình trộn
+    nhà cung cấp (T1 một nơi, T2 một nơi khác).
+    """
     fake = FakeVisionClient(results=list(results))
-    monkeypatch.setattr(classifier, "get_vision_client", lambda: fake)
-    monkeypatch.setattr(classifier, "get_tier_models", lambda: ("model-t1", "model-t2", "model-text"))
+    clients = theo_tang or {}
+    providers = nha_cung_cap or {}
+    monkeypatch.setattr(classifier, "get_vision_client", lambda tier="t1": clients.get(tier, fake))
+    monkeypatch.setattr(classifier, "get_tier_model", lambda tier="t1": _MODEL_GIA[tier])
+    monkeypatch.setattr(classifier, "get_tier_provider", lambda tier="t1": providers.get(tier, "fake"))
     return fake
 
 
@@ -94,9 +110,7 @@ def test_t2_loi_thi_giu_ket_qua_t1_chu_khong_nang_do_tin_cay(
 ) -> None:
     from src.services.vision import VisionUnavailableError
 
-    fake = FakeVisionClient(results=[make_result(confidence=0.41)])
-    monkeypatch.setattr(classifier, "get_vision_client", lambda: fake)
-    monkeypatch.setattr(classifier, "get_tier_models", lambda: ("model-t1", "model-t2", "model-text"))
+    fake = _dung_model_gia(monkeypatch, make_result(confidence=0.41))
 
     original = fake.classify_image
     calls = {"n": 0}
@@ -171,11 +185,11 @@ def test_khong_goi_duoc_model_thi_tu_choi_chu_khong_vo_500(
 ) -> None:
     from src.services.vision import VisionUnavailableError
 
-    def khong_co_key():
+    def khong_co_key(tier: str = "t1"):
         raise VisionUnavailableError("Chưa cấu hình API key", code="VISION-401")
 
+    _dung_model_gia(monkeypatch)
     monkeypatch.setattr(classifier, "get_vision_client", khong_co_key)
-    monkeypatch.setattr(classifier, "get_tier_models", lambda: ("t1", "t2", "text"))
 
     outcome = classify_waste(db_session, image_bytes=b"anh", image_phash="5555555555555555")
 
@@ -354,6 +368,119 @@ def test_nhieu_mon_khac_nhom_thi_tu_choi_chu_khong_gan_mot_nhan(
     # Phỏng đoán vẫn giữ lại để hiện trên màn "chưa chắc chắn", nhưng không
     # được kèm hướng dẫn xử lý.
     assert outcome.guess_item_name
+
+
+# --- Trộn nhà cung cấp theo tầng -----------------------------------------
+
+
+def test_t1_va_t2_goi_dung_hai_nha_cung_cap_khac_nhau(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """T1 chạy NVIDIA, T2 chạy Gemini — mỗi tầng đúng một lệnh gọi.
+
+    Trước Hướng 3 cả hai tầng dùng chung một client, nên hết quota nhà cung cấp
+    đó là mất luôn cả hai tầng.
+    """
+    fake_t1 = FakeVisionClient(provider_name="nvidia", results=[make_result(confidence=0.41)])
+    fake_t2 = FakeVisionClient(provider_name="gemini", results=[make_result(confidence=0.93)])
+    _dung_model_gia(
+        monkeypatch,
+        theo_tang={"t1": fake_t1, "t2": fake_t2},
+        nha_cung_cap={"t1": "nvidia", "t2": "gemini", "text": "gemini"},
+    )
+
+    outcome = classify_waste(db_session, image_bytes=b"anh", image_phash="1212343456567878")
+
+    assert len(fake_t1.calls) == 1 and len(fake_t2.calls) == 1
+    assert outcome.tier == TIER_T2
+    assert outcome.provider == "gemini", "Kết quả cuối phải ghi nhà cung cấp đã chốt nhãn"
+    providers = {n.meta.get("provider") for n in outcome.nodes if n.node.startswith("classify_waste")}
+    assert providers == {"nvidia", "gemini"}, "Trace phải cho thấy hai nhà cung cấp cùng chạy"
+
+
+def test_t2_het_quota_thi_t1_cua_nha_cung_cap_khac_van_tra_loi(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Đúng tình huống đã gặp trên bản deploy 01/08: Gemini cạn quota.
+
+    Với provider theo tầng, T1 nằm ở nhà cung cấp khác nên vẫn trả lời được —
+    miễn là kết quả T1 tự nó đã vượt ngưỡng.
+    """
+    from src.services.vision import VisionUnavailableError
+
+    fake_t1 = FakeVisionClient(
+        provider_name="nvidia",
+        results=[make_result(confidence=0.92, quality_issue="nhieu_vat")],
+    )
+
+    class HetQuota:
+        provider_name = "gemini"
+
+        def classify_image(self, *args, **kwargs):
+            raise VisionUnavailableError("Model đang quá tải (rate limit).", code="VISION-429")
+
+        def classify_text(self, *args, **kwargs):
+            raise VisionUnavailableError("Model đang quá tải (rate limit).", code="VISION-429")
+
+    _dung_model_gia(
+        monkeypatch,
+        theo_tang={"t1": fake_t1, "t2": HetQuota()},  # type: ignore[dict-item]
+        nha_cung_cap={"t1": "nvidia", "t2": "gemini"},
+    )
+
+    outcome = classify_waste(db_session, image_bytes=b"anh", image_phash="2323454567678989")
+
+    assert outcome.refused is False, "T2 hết quota không được kéo theo cả T1"
+    assert outcome.tier == TIER_T1 and outcome.provider == "nvidia"
+    assert any(n.node == "classify_waste_t2" and n.error_type == "VISION-429" for n in outcome.nodes)
+
+
+def test_hai_tang_trung_provider_va_trung_model_thi_khong_goi_lai(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Gọi lại y hệt chỉ tốn tiền mà không có ý kiến thứ hai."""
+    fake = _dung_model_gia(monkeypatch, make_result(confidence=0.41))
+    monkeypatch.setattr(classifier, "get_tier_model", lambda tier="t1": "cung-mot-model")
+    monkeypatch.setattr(classifier, "get_tier_provider", lambda tier="t1": "gemini")
+
+    classify_waste(db_session, image_bytes=b"anh", image_phash="3434565678789a9a")
+
+    assert len(fake.calls) == 1
+
+
+def test_trung_ten_model_nhung_khac_nha_cung_cap_thi_van_goi_t2(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Cùng tên model trên hai nhà cung cấp là hai đường độc lập — vẫn đáng gọi."""
+    fake_t1 = FakeVisionClient(provider_name="openrouter", results=[make_result(confidence=0.41)])
+    fake_t2 = FakeVisionClient(provider_name="nvidia", results=[make_result(confidence=0.95)])
+    _dung_model_gia(
+        monkeypatch,
+        theo_tang={"t1": fake_t1, "t2": fake_t2},
+        nha_cung_cap={"t1": "openrouter", "t2": "nvidia"},
+    )
+    monkeypatch.setattr(classifier, "get_tier_model", lambda tier="t1": "meta/llama-3.2-11b-vision-instruct")
+
+    outcome = classify_waste(db_session, image_bytes=b"anh", image_phash="4545676789898b8b")
+
+    assert len(fake_t2.calls) == 1
+    assert outcome.tier == TIER_T2
+
+
+def test_hoi_bang_chu_di_theo_nha_cung_cap_cua_tang_text(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_text = FakeVisionClient(provider_name="gemini", results=[make_result(confidence=0.93)])
+    _dung_model_gia(
+        monkeypatch,
+        theo_tang={"text": fake_text},
+        nha_cung_cap={"t1": "nvidia", "t2": "gemini", "text": "gemini"},
+    )
+
+    outcome = classify_waste(db_session, text_query="hộp sữa giấy tráng nhôm")
+
+    assert fake_text.calls == [("text", "model-text")]
+    assert outcome.provider == "gemini"
 
 
 def test_nhieu_mon_cung_mot_nhom_thi_van_tra_loi_binh_thuong(

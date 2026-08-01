@@ -4,12 +4,13 @@
 # file này, dựng web service từ `Dockerfile` sẵn có và một cơ sở dữ liệu
 # PostgreSQL, rồi tự nối `DATABASE_URL` giữa hai bên.
 #
-# Ba biến phải tự điền trên bảng điều khiển (đánh dấu `sync: false`, Render sẽ
-# hỏi lúc tạo): `GEMINI_API_KEY`, và `CORS_ORIGINS` sau khi có domain Vercel thật.
+# Các biến phải tự điền trên bảng điều khiển (đánh dấu `sync: false`, Render sẽ
+# hỏi lúc tạo): `GEMINI_API_KEY`, `NVIDIA_API_KEY`, và `CORS_ORIGINS` sau khi có
+# domain Vercel thật.
 #
 # Giới hạn đã biết của gói miễn phí, đã ghi thẳng lên trang Vận hành:
 #   - đĩa là tạm thời → ảnh cư dân tải lên mất khi service khởi động lại;
-#   - không đủ RAM cho torch → `LOCAL_MODEL_ENABLED=false`, tầng T0.5 chỉ chạy khi dev;
+#   - không đủ RAM cho torch → tầng T0.5 chạy bản CLIP đã nén int8 (ADR-0007);
 #   - service ngủ khi rảnh → request đầu tiên chậm, phải mở web trước lúc demo.
 
 # Singapore là vùng gần Việt Nam nhất Render có — chênh lệch độ trễ so với
@@ -48,14 +49,40 @@ services:
       - key: SEED_DEMO_ON_START
         value: "true"
 
-      # Tầng T0.5 cần torch (1,19 GB) — không cài trên bản deploy.
+      # Tầng T0.5 nay chạy được ở đây: bản CLIP đã nén còn nửa ảnh int8, đo được
+      # 185 MB RAM · 56 ms/ảnh, không cần torch (ADR-0007).
       - key: LOCAL_MODEL_ENABLED
-        value: "false"
+        value: "true"
+      # `onnx` chứ không phải `auto`: máy chủ này không có torch, ép cứng để
+      # thiếu file model thì tầng tự tắt gọn thay vì thử một đường không tồn tại.
+      - key: CLIP_RUNTIME
+        value: onnx
+      # Đĩa của gói free là đĩa tạm nên file model mất sau mỗi lần khởi động
+      # lại. Trỏ vào file .tar.gz đính trong GitHub Release (chứa
+      # clip_vision_int8.onnx + clip_text_embeddings.json) để nó tự tải lại.
+      # ĐỂ TRỐNG cũng chạy được — chỉ là tầng T0.5 tự tắt như trước.
+      - key: CLIP_ASSETS_URL
+        sync: false
 
       - key: VISION_PROVIDER
         value: gemini
-      # Điền trên bảng điều khiển. Không có key này thì luồng chụp ảnh không chạy.
+
+      # Provider theo từng tầng. Free tier của `gemini-flash-latest` chỉ 20
+      # request/ngày (đo 01/08/2026) nên T1 — tầng ăn phần lớn lưu lượng — đẩy
+      # sang NVIDIA (~1.000 credit); Gemini chỉ lo T2 và bước sinh hướng dẫn.
+      # Để trống là quay về dùng chung VISION_PROVIDER.
+      - key: VISION_PROVIDER_T1
+        value: nvidia
+      - key: VISION_PROVIDER_T2
+        value: gemini
+      - key: VISION_PROVIDER_TEXT
+        value: gemini
+
+      # Điền trên bảng điều khiển. Thiếu key của tầng nào thì tầng đó dừng, các
+      # tầng còn lại vẫn chạy — trang Vận hành chỉ rõ tầng nào đang thiếu.
       - key: GEMINI_API_KEY
+        sync: false
+      - key: NVIDIA_API_KEY
         sync: false
 
       # Render tự sinh chuỗi ngẫu nhiên — không bao giờ dùng lại secret của máy dev.

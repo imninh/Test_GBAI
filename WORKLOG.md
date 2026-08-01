@@ -143,6 +143,74 @@ và nhìn kết quả, không lộ ra khi đọc code.
 
 ---
 
+## 2026-08-01 — buổi 3: provider theo từng tầng (Hướng 3)
+
+Việc chính trong `docs/BAN_GIAO_2026-08-01.md` mục 5.
+
+| Member | Task | Status | Output | Time |
+|--------|------|--------|--------|------|
+| Ninh | `Settings`: `resolve_provider(tier)` · `resolve_model_for(tier)` · `api_key_for(provider)` · `base_url_for(provider)` | ✅ Done | `src/config.py` — bảng model mặc định tách ra `PROVIDER_DEFAULT_MODELS`; `resolve_models()` giữ làm lớp bọc nên chỗ gọi cũ không gãy | — |
+| Ninh | `get_vision_client(tier)` + `get_tier_model/provider(tier)` | ✅ Done | `src/services/vision/__init__.py`, mặc định `tier="t1"` | — |
+| Ninh | Định tuyến lấy **hai client riêng** cho T1 và T2 | ✅ Done | `src/services/classifier.py` — client T2 dựng ngay trong nhánh escalate để lỗi thiếu key rơi đúng vào nhánh "T2 hỏng", giữ kết quả T1 | — |
+| Ninh | Điều kiện gọi T2 so **cặp (provider, model)** | ✅ Done | Trùng tên model nhưng khác nhà cung cấp vẫn là ý kiến thứ hai → vẫn gọi | — |
+| Ninh | `advise` + embedding đi theo tầng `text` | ✅ Done | `src/services/rag.py` — bước tiêu quota nhanh nhất nay có nhà cung cấp riêng | — |
+| Ninh | Trang Vận hành: bảng **tầng → nhà cung cấp → model → có key chưa** | ✅ Done | `provider_status()` trả thêm `tiers` + `single_provider`; `insights.tsx` + `types.ts`. Thiếu key một tầng nay hiện đỏ đúng tầng đó thay vì bị một cờ chung che mất | — |
+| Ninh | Test | ✅ Done | **94 pass** (thêm 15): `tests/test_services/test_vision_routing.py` + mục "Trộn nhà cung cấp theo tầng" trong `test_classifier.py`, gồm ca **T2 hết quota mà T1 vẫn trả lời** | — |
+| Ninh | Kiểm chứng thật, không phải mock | ✅ Done | Gọi thật NVIDIA ở T1 với ảnh trong `data/media`: đúng khuôn JSON, 8,5s · 2.358 token vào. Trang Vận hành mở bằng tài khoản BQL hiện đủ 3 dòng, `single_provider=false` | — |
+| Ninh | **ADR-0006 — provider theo từng tầng** | ✅ Done | `docs/decisions/0006-provider-theo-tung-tang.md`; cập nhật `.env.example`, `render.yaml`, `README.md`, `docs/HUONG_DAN_DEPLOY.md` | — |
+| — | Điền `NVIDIA_API_KEY` + 3 biến `VISION_PROVIDER_*` trên Render rồi redeploy | ⬜ Chưa làm | cần bảng điều khiển của chủ dự án — **đây là bước làm cho T2 sống lại trên bản deploy** | — |
+| — | Cắt lệnh gọi `advise` khi không cần | ⬜ Chưa làm | việc rẻ hơn, giảm ngay 50% lượng gọi API | — |
+
+**Tổng kết ngày:** Hết quota một nhà cung cấp không còn làm đứng cả sản phẩm.
+Tầng ăn nhiều lưu lượng nhất (T1) chuyển sang nơi có hạn mức rộng nhất (NVIDIA,
+~1.000 credit), còn Gemini — vốn chỉ có **20 request/ngày** — chỉ còn lo T2 và
+bước sinh hướng dẫn. Chỗ dễ sai nhất khi làm: **model mặc định phải lấy theo
+provider của chính tầng đó**, lấy nhầm mặc định của provider chung thì T1 sẽ gửi
+tên model Gemini sang endpoint NVIDIA và chỉ vỡ lúc gọi thật. Chỗ thứ hai: điều
+kiện "T2 khác T1 thì mới gọi" trước đây so mỗi tên model, giữ nguyên thì hai nhà
+cung cấp khác nhau mà trùng tên model sẽ bị bỏ qua oan. Đánh đổi đã ghi vào
+ADR-0006: NVIDIA chậm hơn Gemini 4 lần và T1/T2 nay không cùng họ model nên bảng
+so sánh accuracy giữa hai tầng phải chú thích rõ.
+
+---
+
+## 2026-08-02 — tầng T0.5 vừa được máy chủ 512 MB
+
+Chốt phương án A trong ba hướng đã bàn: nén model rồi chạy ngay trên máy chủ
+hiện tại, thay vì đẩy sang một service khác.
+
+| Member | Task | Status | Output | Time |
+|--------|------|--------|--------|------|
+| Ninh | Chẩn đoán lại chỗ chặn | ✅ Done | Ghi chú cũ lẫn **dung lượng gói cài (1,19 GB)** với **RAM lúc chạy**. Cái chặn thật là RAM: CLIP đầy đủ fp32 ~605 MB trên máy chủ 512 MB | — |
+| Ninh | `scripts/export_clip_onnx.py` | ✅ Done | Tính sẵn dãy số 35 câu mô tả · xuất nửa ảnh sang ONNX · nén int8 · **tự đối chiếu với bản gốc trên ảnh thật** rồi in số đo | — |
+| Ninh | `local_clip.py` tách hai đường chạy | ✅ Done | `CLIP_RUNTIME=auto\|onnx\|torch`; tiền xử lý ảnh tự viết bằng PIL + numpy để bỏ hẳn `transformers` khỏi đường phục vụ | — |
+| Ninh | Chốt chặn bộ câu mô tả lệch | ✅ Done | File kèm lưu **mã băm** của 35 câu; lệch là tầng T0.5 tự tắt kèm cảnh báo, thay vì chấm bằng dãy số cũ trong im lặng | — |
+| Ninh | Tải model lúc khởi động | ✅ Done | `CLIP_ASSETS_URL` → tải + giải nén ở luồng nền (đĩa gói free là đĩa tạm nên mất sau mỗi restart). Chỉ giải nén đúng 2 file cần, không tin danh sách tên trong gói nén | — |
+| Ninh | Đo thật, 4 cách nén | ✅ Done | int8 **88,7 MB · 185 MB RAM · 56 ms**, cosine 0,970/0,980 · fp32 446 MB (quá sát trần) · per_channel 0,9636 · reduce_range 0,9407 · fp16 thì onnxruntime từ chối nạp | — |
+| Ninh | Test | ✅ Done | **105 pass** (thêm 11): `tests/test_services/test_local_clip.py`, gồm test giữ **hợp đồng giữa script xuất và runtime** | — |
+| Ninh | **ADR-0007** | ✅ Done | `docs/decisions/0007-tang-t05-chay-onnx-int8.md`; cập nhật `render.yaml`, `requirements*.txt`, `.gitignore`, README, hướng dẫn deploy, dòng giới hạn trên trang Vận hành | — |
+| — | Đính bộ ONNX vào GitHub Release + đặt `CLIP_ASSETS_URL` | ⬜ Chưa làm | 15 phút, cần tài khoản chủ dự án | — |
+| — | Chuẩn lại `CLIP_ACCEPT_CONFIDENCE` cho bản nén | ⬜ Chưa làm | **chờ bộ 100 ảnh tự chụp** — không có ảnh thật thì mọi con số đều là đoán | — |
+
+**Tổng kết ngày:** Thứ mở ra được cả việc này là một quan sát đơn giản: CLIP có
+hai nửa, và **nửa chữ không cần chạy lúc phục vụ** vì 35 câu mô tả không bao giờ
+đổi giữa các lần chụp — đúng nguyên tắc `rag.embed_chunks()` đã áp dụng cho kho
+quy định từ đầu, chỉ là tầng T0.5 quên áp dụng. Bỏ nửa chữ, nén nửa ảnh xuống
+int8, thế là từ ~605 MB còn 88,7 MB và tầng này **nhanh hơn 8 lần** (458 ms →
+56 ms) — món lợi ngoài dự tính.
+
+Số đáng nhớ nhất lại là số của bản **fp32**: cosine đúng **1,0000** so với
+`CLIPProcessor` gốc. Nó xác nhận phần tiền xử lý ảnh tự viết không sai chỗ nào,
+nên toàn bộ sai lệch của bản int8 (0,970–0,980) là do nén chứ không do lỗi ẩn ở
+đâu khác. Không có con số đó thì không dám kết luận như vậy.
+
+Chỗ phải giữ tỉnh táo: bản nén **thay đổi thang điểm** (cùng một ảnh, 0,3072 →
+0,4466). Nhóm chọn ra vẫn giống, nhưng ngưỡng 0,82 giờ không còn nghĩa cũ.
+Không chuẩn lại mà cứ chạy thì tầng T0.5 sẽ **chốt nhãn cho những ca lẽ ra phải
+đẩy lên T1** — kiểu hỏng không kêu tiếng nào.
+
+---
+
 ## [YYYY-MM-DD]
 
 | Member | Task | Status | Output | Time |

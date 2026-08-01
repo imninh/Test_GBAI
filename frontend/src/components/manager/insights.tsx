@@ -271,16 +271,52 @@ export function OpsScreen() {
       </div>
 
       <Card className="mb-4 p-4">
-        <div className="mb-2 text-sm font-bold">Cấu hình model đang chạy</div>
-        <div className="text-[13px] font-semibold leading-loose text-ink-soft">
-          Nhà cung cấp: <b>{du.provider.provider}</b> · API key:{" "}
-          <b>{du.provider.has_api_key ? "đã cấu hình" : "CHƯA cấu hình"}</b>
-          <br />
-          T1: <b>{du.provider.model_t1 || "—"}</b> · T2: <b>{du.provider.model_t2 || "—"}</b> · prompt{" "}
-          <b>{du.provider.prompt_version}</b>
-          <br />
-          Model local (T0.5): {du.provider.local_model_enabled ? "đang bật" : "đang tắt"} ·{" "}
+        <div className="mb-1 text-sm font-bold">Cấu hình model đang chạy</div>
+        <div className="mb-3 text-xs font-semibold text-muted">
+          {du.provider.single_provider
+            ? "Cả ba tầng đang dùng chung một nhà cung cấp — hết quota ở đó là mất cả ba."
+            : "Mỗi tầng chạy trên nhà cung cấp riêng: cạn quota một nơi không làm đứng các tầng còn lại."}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-[13px] font-semibold">
+            <thead>
+              <tr className="text-[11px] uppercase text-muted">
+                <th className="pb-1.5">Tầng</th>
+                <th className="pb-1.5">Nhà cung cấp</th>
+                <th className="pb-1.5">Model</th>
+                <th className="pb-1.5">API key</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(du.provider.tiers ?? []).map((t) => (
+                <tr key={t.tier} className="border-t border-[#f7f4ec]">
+                  <td className="py-1.5 pr-3">{t.label_vi}</td>
+                  <td className="py-1.5 pr-3">
+                    <b>{t.provider}</b>
+                  </td>
+                  <td className="py-1.5 pr-3">{t.model || "—"}</td>
+                  <td className={`py-1.5 ${t.has_api_key ? "" : "text-hazard-dark"}`}>
+                    {t.has_api_key ? "đã cấu hình" : "CHƯA cấu hình"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-3 text-[13px] font-semibold leading-loose text-ink-soft">
+          T0.5 — model local (CLIP): {du.provider.local_model_enabled ? "đang bật" : "đang tắt"} ·{" "}
           {du.provider.local_model_loaded ? "đã nạp vào bộ nhớ" : "chưa nạp (nạp lần đầu khi có ảnh)"}
+          {du.provider.local_model_runtime ? (
+            <>
+              {" · "}
+              <b>
+                {du.provider.local_model_runtime === "onnx"
+                  ? "bản nén int8, chạy tại chỗ"
+                  : "bản đầy đủ (torch)"}
+              </b>
+            </>
+          ) : null}{" "}
+          · prompt <b>{du.provider.prompt_version}</b>
         </div>
       </Card>
 

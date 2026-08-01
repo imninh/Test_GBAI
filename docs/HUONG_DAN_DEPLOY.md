@@ -70,12 +70,17 @@ chức — giá trị trong `.env.example` chỉ là chỗ giữ chỗ.
 3. Render đọc [`render.yaml`](../render.yaml) và tự dựng **hai** thứ: một web
    service (`greenbin-api`) và một PostgreSQL (`greenbin-db`), tự nối
    `DATABASE_URL` giữa chúng. Không phải cấu hình tay.
-4. Render sẽ hỏi hai biến để trống có chủ đích:
+4. Render sẽ hỏi ba biến để trống có chủ đích:
 
    | Biến | Điền gì |
    |---|---|
-   | `GEMINI_API_KEY` | key vision của bạn. Chưa có thì để trống, điền sau |
+   | `GEMINI_API_KEY` | key Gemini — lo tầng T2 và bước sinh hướng dẫn |
+   | `NVIDIA_API_KEY` | key NVIDIA NIM — lo tầng T1, tầng ăn phần lớn lưu lượng |
+   | `CLIP_ASSETS_URL` | link tải bộ model T0.5 (xem mục bên dưới). **Để trống cũng chạy** — chỉ là tầng T0.5 tự tắt |
    | `CORS_ORIGINS` | **tạm** điền `https://localhost,capacitor://localhost`. Bước 3 sẽ quay lại sửa |
+
+   > Thiếu key của tầng nào thì **chỉ tầng đó dừng**, các tầng còn lại vẫn chạy.
+   > Trang Vận hành có bảng chỉ rõ tầng nào đang thiếu key.
 
 5. Bấm Apply rồi chờ. Lần build đầu mất **5–10 phút** (dựng Docker image).
 
@@ -198,6 +203,66 @@ Cả ba đã hiện sẵn trên **trang Vận hành của sản phẩm**, không
 VISION_PROVIDER=gemini      # hoặc nvidia | openai | openrouter
 GEMINI_API_KEY=...
 ```
+
+### Mỗi tầng một nhà cung cấp
+
+`VISION_PROVIDER` là mặc định chung. Khai thêm ba biến dưới đây để **trộn nhà
+cung cấp theo tầng** — để trống thì tầng đó dùng mặc định chung:
+
+```
+VISION_PROVIDER_T1=nvidia     # tầng ăn phần lớn lưu lượng → nơi có quota rộng
+VISION_PROVIDER_T2=gemini     # chỉ chạy khi ca khó → chịu được quota hẹp
+VISION_PROVIDER_TEXT=gemini   # sinh hướng dẫn + hỏi bằng chữ
+```
+
+Vì sao cần: free tier của `gemini-flash-latest` chỉ **20 request/ngày** (đo
+01/08/2026), mà mỗi lần chụp ảnh tiêu 2 request → **10 lần chụp là hết**. Để cả
+hệ thống trên một nhà cung cấp thì cạn quota là sản phẩm đứng; trải ra ba nguồn
+thì mất một nguồn chỉ mất một tầng.
+
+Cả hai key phải có mặt cùng lúc: `GEMINI_API_KEY` **và** `NVIDIA_API_KEY`.
+Kiểm bằng `GET /api/v1/ops/metrics` → khối `provider.tiers` liệt kê từng tầng
+kèm cờ `has_api_key`; trang Vận hành hiện đúng bảng đó.
+
+---
+
+## Bật tầng T0.5 trên bản deploy
+
+Máy chủ gói free chỉ có **512 MB RAM** nên không cõng nổi CLIP bản đầy đủ. Bản
+đã nén (chỉ nửa ảnh, int8) thì vừa: đo được **185 MB RAM · 56 ms/ảnh**. Xem
+[ADR-0007](decisions/0007-tang-t05-chay-onnx-int8.md).
+
+Ba bước, làm một lần:
+
+1. **Sinh bộ file** trên máy có torch (hoặc Google Colab bản miễn phí):
+
+   ```bash
+   pip install -r requirements-local-model.txt
+   python scripts/export_clip_onnx.py --anh data/media/<một-ảnh>.jpg
+   ```
+
+   Ra hai file trong `assets/clip/`: `clip_vision_int8.onnx` (~89 MB) và
+   `clip_text_embeddings.json`. Script in ra mức lệch so với bản gốc — **đọc
+   con số đó**, nếu nó báo hai bản chọn khác nhóm thì đừng dùng.
+
+2. **Nén rồi đính vào GitHub Release** (không commit vào repo — 89 MB sẽ nằm
+   trong lịch sử git vĩnh viễn):
+
+   ```bash
+   tar -czf clip-assets.tar.gz -C assets/clip clip_vision_int8.onnx clip_text_embeddings.json
+   ```
+
+   Tải file này lên phần Releases của repo, copy link tải trực tiếp.
+
+3. **Dán link vào `CLIP_ASSETS_URL`** trên Render rồi redeploy. Máy chủ tự tải
+   về lúc khởi động (đĩa gói free là đĩa tạm nên nó tải lại sau mỗi lần restart,
+   chạy ở luồng nền nên không chặn request nào).
+
+**Kiểm:** trang Vận hành, dòng T0.5 phải hiện *"bản nén int8, chạy tại chỗ"*.
+
+⚠️ Đổi câu mô tả `clip_prompts` trong danh mục rác thì **phải chạy lại bước 1**.
+Không chạy lại thì tầng T0.5 tự tắt kèm cảnh báo trong log — cố ý làm vậy để nó
+không chấm bằng bộ câu cũ trong im lặng.
 
 | Provider | Free tier | Nhận ảnh | Ghi chú |
 |---|---|---|---|

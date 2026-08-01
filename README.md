@@ -145,9 +145,53 @@ cp .env.example .env
 | NVIDIA NIM | ✅ | API tương thích OpenAI |
 | DeepSeek | ❌ | **chỉ text** — không dùng được cho phân loại ảnh |
 
-Tầng **T0.5 chạy local** bằng CLIP zero-shot (`openai/clip-vit-base-patch32`,
-~350MB, tải một lần rồi chạy offline trên CPU). Chưa có API key thì phần chặn
-cứng, thu gom, tuyến, vận hành **vẫn chạy đầy đủ**; chỉ luồng nhận diện ảnh cần key.
+### Mỗi tầng một nhà cung cấp
+
+`VISION_PROVIDER` là mặc định chung; ba biến dưới đây ghi đè cho riêng từng tầng
+(để trống là dùng mặc định chung):
+
+```bash
+VISION_PROVIDER_T1=nvidia     # tầng ăn phần lớn lưu lượng → nơi quota rộng
+VISION_PROVIDER_T2=gemini     # chỉ chạy khi ca khó → chịu được quota hẹp
+VISION_PROVIDER_TEXT=gemini   # sinh hướng dẫn + hỏi bằng chữ
+```
+
+Đo 01/08/2026: free tier `gemini-flash-latest` chỉ **20 request/ngày** và mỗi
+lần chụp ảnh tiêu 2 request — dồn cả hệ thống vào một nhà cung cấp thì **10 lần
+chụp là hết**. Trải theo tầng thì mất một nguồn chỉ mất một tầng, các tầng còn
+lại vẫn trả lời. Trang Vận hành hiện bảng tầng → nhà cung cấp → model → có key
+chưa. Chi tiết ở [ADR-0006](docs/decisions/0006-provider-theo-tung-tang.md).
+
+Chưa có API key thì phần chặn cứng, thu gom, tuyến, vận hành **vẫn chạy đầy đủ**;
+chỉ luồng nhận diện ảnh cần key.
+
+### Tầng T0.5 — CLIP chạy tại chỗ, hai đường
+
+Tầng T0.5 dùng CLIP zero-shot (`openai/clip-vit-base-patch32`), chọn đường chạy
+bằng `CLIP_RUNTIME`:
+
+| | `torch` (máy dev) | `onnx` (máy chủ) |
+|---|---|---|
+| Cần | torch 1,19 GB | chỉ `onnxruntime` |
+| Trọng số | ~605 MB | **88,7 MB** |
+| RAM đo được | — | **185 MB** |
+| Độ trễ/ảnh | 458 ms | **56 ms** |
+
+Bản `onnx` chỉ giữ **nửa ảnh** của CLIP, đã nén int8; dãy số của 35 câu mô tả
+được tính sẵn một lần nên khỏi phải mã hoá lại mỗi tấm ảnh. Nhờ vậy tầng này
+chạy được cả trên máy chủ 512 MB. Sinh bộ file:
+
+```bash
+python scripts/export_clip_onnx.py --anh data/media/<một-ảnh>.jpg
+```
+
+Chạy **một lần**, cần torch — máy yếu thì chạy trên Google Colab bản miễn phí.
+Hai file kết quả (~89 MB) **không commit vào repo**: đính vào GitHub Release rồi
+trỏ `CLIP_ASSETS_URL` vào đó.
+
+⚠️ Bản nén cho điểm số lệch so với bản đầy đủ (cosine đo được 0,970–0,980), nên
+**`CLIP_ACCEPT_CONFIDENCE` phải chuẩn lại trên bộ ảnh thật** — chi tiết và toàn
+bộ số đo ở [ADR-0007](docs/decisions/0007-tang-t05-chay-onnx-int8.md).
 
 ---
 

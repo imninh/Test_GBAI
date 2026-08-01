@@ -60,7 +60,7 @@ def api_session(monkeypatch: pytest.MonkeyPatch) -> Iterator[Session]:
 
     monkeypatch.setattr(
         "src.services.vision.get_vision_client",
-        lambda: (_ for _ in ()).throw(VisionUnavailableError("test khong goi model")),
+        lambda tier="t1": (_ for _ in ()).throw(VisionUnavailableError("test khong goi model")),
     )
     monkeypatch.setattr(classifier, "classify_image_local", lambda *a, **k: None)
 
@@ -158,8 +158,9 @@ async def test_phan_loai_bang_chu_tra_du_thong_tin_cho_man_ket_qua(
     api: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fake = FakeVisionClient(results=[make_result(confidence=0.91)])
-    monkeypatch.setattr(classifier, "get_vision_client", lambda: fake)
-    monkeypatch.setattr(classifier, "get_tier_models", lambda: ("t1", "t2", "text"))
+    monkeypatch.setattr(classifier, "get_vision_client", lambda tier="t1": fake)
+    monkeypatch.setattr(classifier, "get_tier_model", lambda tier="t1": tier)
+    monkeypatch.setattr(classifier, "get_tier_provider", lambda tier="t1": "fake")
     token = await _dang_nhap(api, "resident@demo.vn")
 
     response = await api.post(

@@ -197,6 +197,94 @@ def test_nhom_nguy_hai_diem_cao_thi_danh_dau_nghi_ngo(monkeypatch: pytest.Monkey
     assert ket_qua.suspect_hazardous is True
 
 
+# --- Lấy bộ model về từ GitHub Release -----------------------------------
+
+
+def test_link_khong_phai_trang_release_thi_giu_nguyen() -> None:
+    url = "https://example.com/clip-assets.tar.gz"
+
+    assert local_clip._giai_url_trang_release(url) == url
+
+
+def test_dan_nham_link_trang_release_thi_tu_tim_ra_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nút copy của GitHub cho ra link TRANG, không phải link FILE.
+
+    Đã vấp thật khi cấu hình Render. Tải link trang về thì được một trang HTML,
+    giải nén hỏng, tầng T0.5 tắt mà không ai hiểu vì sao.
+    """
+    import httpx
+
+    class _PhanHoiGia:
+        def raise_for_status(self):
+            return self
+
+        def json(self):
+            return {
+                "assets": [
+                    {"name": "ghi-chu.txt", "browser_download_url": "https://x/ghi-chu.txt"},
+                    {"name": "clip-assets.tar.gz", "browser_download_url": "https://x/clip-assets.tar.gz"},
+                ]
+            }
+
+    class _ClientGia:
+        def __init__(self, *args, **kwargs) -> None:
+            self.duong_dan = ""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args) -> None:
+            return None
+
+        def get(self, url: str):
+            self.duong_dan = url
+            _ClientGia.da_goi = url
+            return _PhanHoiGia()
+
+    monkeypatch.setattr(httpx, "Client", _ClientGia)
+
+    ra = local_clip._giai_url_trang_release("https://github.com/imninh/Test_GBAI/releases/tag/First")
+
+    assert ra == "https://x/clip-assets.tar.gz"
+    assert _ClientGia.da_goi == "https://api.github.com/repos/imninh/Test_GBAI/releases/tags/First"
+
+
+def test_tra_ve_trang_web_thay_vi_file_thi_bo_qua_gon(
+    monkeypatch: pytest.MonkeyPatch, tmp_path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Không được để lỗi giải nén khó hiểu thay cho một câu nói rõ chuyện gì."""
+    import httpx
+
+    class _PhanHoiGia:
+        content = b"<!DOCTYPE html><html>trang release</html>"
+
+        def raise_for_status(self):
+            return self
+
+    class _ClientGia:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args) -> None:
+            return None
+
+        def get(self, url: str):
+            return _PhanHoiGia()
+
+    monkeypatch.setenv("CLIP_ASSETS_URL", "https://example.com/khong-phai-file")
+    reset_settings_cache()
+    monkeypatch.setattr(httpx, "Client", _ClientGia)
+
+    with caplog.at_level("WARNING"):
+        local_clip._tai_asset_neu_thieu(tmp_path / "clip")
+
+    assert not (tmp_path / "clip" / local_clip.ONNX_MODEL_FILE).exists()
+    assert "releases/download" in caplog.text, "Cảnh báo phải chỉ ra dạng link đúng"
+
+
 # --- Hợp đồng giữa script xuất và runtime --------------------------------
 
 

@@ -252,11 +252,17 @@ Ba bước, làm một lần:
    tar -czf clip-assets.tar.gz -C assets/clip clip_vision_int8.onnx clip_text_embeddings.json
    ```
 
-   Tải file này lên phần Releases của repo, copy link tải trực tiếp.
+   Tải file này lên phần Releases của repo.
 
-3. **Dán link vào `CLIP_ASSETS_URL`** trên Render rồi redeploy. Máy chủ tự tải
-   về lúc khởi động (đĩa gói free là đĩa tạm nên nó tải lại sau mỗi lần restart,
-   chạy ở luồng nền nên không chặn request nào).
+3. **Dán link vào `CLIP_ASSETS_URL`** trên Render rồi redeploy.
+
+   Nhận cả hai dạng link:
+   - link **file**: `…/releases/download/<tag>/clip-assets.tar.gz` — chuẩn nhất;
+   - link **trang** Release: `…/releases/tag/<tag>` — máy chủ tự tra ra file
+     `.tar.gz` đính kèm. Nút copy của GitHub cho ra dạng này nên rất dễ dán nhầm.
+
+   Máy chủ tự tải về lúc khởi động — đĩa gói free là đĩa tạm nên nó tải lại sau
+   mỗi lần restart, chạy ở luồng nền nên không chặn request nào.
 
 **Kiểm:** trang Vận hành, dòng T0.5 phải hiện *"bản nén int8, chạy tại chỗ"*.
 

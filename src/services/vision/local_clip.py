@@ -95,6 +95,40 @@ def tien_xu_ly_anh(image: Image.Image, size: int, mean: list[float], std: list[f
 # --- Đường ONNX ------------------------------------------------------------
 
 
+def _giai_url_trang_release(url: str) -> str:
+    """Đổi link **trang** Release của GitHub thành link **file** .tar.gz.
+
+    Dán nhầm link trang là chuyện rất dễ xảy ra — nút copy trên GitHub cho ra
+    ``…/releases/tag/<tag>`` chứ không phải ``…/releases/download/<tag>/<file>``.
+    Tải link trang về thì được một trang HTML, giải nén hỏng, và tầng T0.5 tắt
+    mà không ai hiểu vì sao. Tự sửa hộ thay vì bắt người dùng đoán.
+
+    Trả về URL gốc nếu không phải link trang release hoặc không tra được.
+    """
+    if "/releases/tag/" not in url:
+        return url
+
+    import httpx
+
+    repo, _, tag = url.partition("/releases/tag/")
+    repo = repo.replace("https://github.com/", "", 1).strip("/")
+    api = f"https://api.github.com/repos/{repo}/releases/tags/{tag.strip('/')}"
+    try:
+        with httpx.Client(timeout=30.0, follow_redirects=True) as client:
+            assets = client.get(api).raise_for_status().json().get("assets", [])
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("CLIP_ASSETS_URL là link trang Release mà không tra được file đính kèm: %s", exc)
+        return url
+
+    for asset in assets:
+        if str(asset.get("name", "")).endswith(".tar.gz"):
+            duong_dan = str(asset["browser_download_url"])
+            logger.info("CLIP_ASSETS_URL trỏ vào trang Release — dùng file đính kèm %s", asset["name"])
+            return duong_dan
+    logger.warning("Release '%s' không có file .tar.gz nào đính kèm.", tag)
+    return url
+
+
 def _tai_asset_neu_thieu(thu_muc: Path) -> None:
     """Tải hai file model từ ``CLIP_ASSETS_URL`` nếu máy chưa có.
 
@@ -111,12 +145,24 @@ def _tai_asset_neu_thieu(thu_muc: Path) -> None:
 
     import httpx
 
+    url = _giai_url_trang_release(url)
     thu_muc.mkdir(parents=True, exist_ok=True)
     logger.info("Tải bộ model T0.5 từ %s …", url)
     try:
         with httpx.Client(timeout=300.0, follow_redirects=True) as client:
             response = client.get(url)
             response.raise_for_status()
+        # Hai byte đầu của mọi file .gz. Không khớp thì gần như chắc chắn URL
+        # trỏ vào một trang web chứ không phải file — nói thẳng ra vậy, đừng để
+        # người đọc log phải suy từ một lỗi giải nén khó hiểu.
+        if not response.content.startswith(b"\x1f\x8b"):
+            logger.warning(
+                "CLIP_ASSETS_URL không trả về file .tar.gz (nhận %d byte, có vẻ là trang web). "
+                "Cần link TẢI FILE dạng .../releases/download/<tag>/<tên file>.tar.gz. "
+                "Tầng T0.5 tạm tắt.",
+                len(response.content),
+            )
+            return
         with tempfile.TemporaryDirectory() as tam:
             goi = Path(tam) / "clip_assets.tar.gz"
             goi.write_bytes(response.content)

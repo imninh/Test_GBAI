@@ -303,3 +303,74 @@ def test_moi_buoc_deu_sinh_so_lieu_cho_man_agent_run(
     assert {"safety_precheck", "cache_lookup", "classify_waste", "safety_check"} <= nodes
     assert any(n.llm_calls == 1 for n in outcome.nodes)
     assert outcome.latency_ms >= 0
+
+
+# --- Ảnh nhiều món rác ---------------------------------------------------
+
+
+def test_nhieu_vat_thi_leo_t2_du_confidence_cao(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """CLAUDE.md mục 4 liệt kê "nhiều vật" là một trong ba điều kiện leo T2.
+
+    Điều kiện này từng bị bỏ sót: model tự tin 0,85 trên một ảnh có ba món
+    khác nhóm thì vẫn đi thẳng ra kết quả, không kiểm lại lần nào.
+    """
+    fake = _dung_model_gia(
+        monkeypatch,
+        make_result(confidence=0.85, quality_issue="nhieu_vat"),
+        make_result(confidence=0.88, quality_issue="nhieu_vat"),
+    )
+
+    classify_waste(db_session, image_bytes=b"anh-nhieu-mon", image_phash="1111222233334444")
+
+    assert len(fake.calls) == 2, "Ảnh nhiều món mà không kiểm lại bằng model mạnh hơn"
+
+
+def test_nhieu_mon_khac_nhom_thi_tu_choi_chu_khong_gan_mot_nhan(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ca thật gặp trên bản deploy 01/08: ảnh có chai nhựa + bình thuỷ tinh +
+    chuột máy tính, model trả về "Nhựa tái chế" với độ tin cậy 0,85.
+
+    Một nhãn duy nhất ở đây là **câu trả lời sai** — thuỷ tinh và rác điện tử
+    đi đường khác nhựa. Phải chuyển người, bất kể confidence cao đến đâu.
+    """
+    nhieu_mon = [
+        {"name": "Chai nhựa", "category_code": "recyclable_plastic", "confidence": 0.9},
+        {"name": "Bình thuỷ tinh", "category_code": "recyclable_glass", "confidence": 0.8},
+        {"name": "Chuột máy tính", "category_code": "hazardous", "confidence": 0.7},
+    ]
+    _dung_model_gia(
+        monkeypatch,
+        make_result(category_code="recyclable_plastic", confidence=0.85, quality_issue="nhieu_vat", items=nhieu_mon),
+        make_result(category_code="recyclable_plastic", confidence=0.85, quality_issue="nhieu_vat", items=nhieu_mon),
+    )
+
+    outcome = classify_waste(db_session, image_bytes=b"anh-ba-mon", image_phash="5555666677778888")
+
+    assert outcome.refused, "Ba món khác nhóm mà vẫn chốt một nhãn duy nhất"
+    assert outcome.refusal_reason == safety.RefusalReason.NHIEU_VAT.value
+    # Phỏng đoán vẫn giữ lại để hiện trên màn "chưa chắc chắn", nhưng không
+    # được kèm hướng dẫn xử lý.
+    assert outcome.guess_item_name
+
+
+def test_nhieu_mon_cung_mot_nhom_thi_van_tra_loi_binh_thuong(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Không được khắt khe quá: ba cái chai nhựa vẫn chỉ là nhựa tái chế."""
+    cung_nhom = [
+        {"name": "Chai nước suối", "category_code": "recyclable_plastic", "confidence": 0.9},
+        {"name": "Chai nước ngọt", "category_code": "recyclable_plastic", "confidence": 0.9},
+    ]
+    _dung_model_gia(
+        monkeypatch,
+        make_result(category_code="recyclable_plastic", confidence=0.92, quality_issue="nhieu_vat", items=cung_nhom),
+        make_result(category_code="recyclable_plastic", confidence=0.93, quality_issue="nhieu_vat", items=cung_nhom),
+    )
+
+    outcome = classify_waste(db_session, image_bytes=b"anh-may-chai", image_phash="9999aaaabbbbcccc")
+
+    assert not outcome.refused
+    assert outcome.category is not None and outcome.category.code == "recyclable_plastic"

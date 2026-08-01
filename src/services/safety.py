@@ -183,20 +183,39 @@ CONFIDENCE_LABELS_VI: dict[str, str] = {
 }
 
 
-def should_escalate_to_t2(confidence: float, min_confidence: float, suspect_hazardous: bool) -> str:
+def should_escalate_to_t2(
+    confidence: float,
+    min_confidence: float,
+    suspect_hazardous: bool,
+    quality_issue: str = "",
+) -> str:
     """Có phải leo từ T1 lên T2 không, và vì lý do gì.
 
-    Điều kiện escalate **bắt buộc gồm cả "nghi rác nguy hại"**, không chỉ
-    confidence thấp — đây là yêu cầu ghi rõ ở CLAUDE.md mục 4.
+    Ba điều kiện, đúng theo CLAUDE.md mục 4: **confidence thấp · nhiều vật ·
+    nghi rác nguy hại**. Hai điều kiện sau không phụ thuộc confidence — model
+    hoàn toàn có thể rất tự tin mà vẫn đang nhìn một đống rác lẫn lộn.
 
     Returns:
         Chuỗi lý do bằng tiếng Việt, hoặc chuỗi rỗng nếu không cần leo tầng.
     """
     if suspect_hazardous:
         return "Nghi rác nguy hại — luôn kiểm tra bằng model mạnh hơn"
+    if quality_issue == RefusalReason.NHIEU_VAT.value:
+        return "Ảnh có nhiều món rác — kiểm lại bằng model mạnh hơn"
     if confidence < min_confidence:
         return f"Độ tin cậy {confidence:.2f} dưới ngưỡng {min_confidence:.2f} của nhóm"
     return ""
+
+
+def nhieu_nhom_khac_nhau(items: list[dict]) -> bool:
+    """Danh sách món rác model liệt kê có trải trên nhiều nhóm khác nhau không.
+
+    Một nhãn duy nhất cho ảnh gồm chai nhựa + bình thuỷ tinh + chuột máy tính
+    là **câu trả lời sai**, dù confidence có cao đến đâu: thuỷ tinh và rác
+    điện tử đi đường khác nhựa. Gặp trường hợp này thì chuyển người, không đoán.
+    """
+    ma_nhom = {str(i.get("category_code", "")).strip() for i in items if i.get("category_code")}
+    return len(ma_nhom) > 1
 
 
 def safety_warning_for(category: WasteCategory | None) -> str:

@@ -179,7 +179,12 @@ class Settings(BaseSettings):
             # danh ``*-latest`` không bị khoá và tự trỏ sang bản mới nhất.
             # Đo ngày 01/08/2026: `pro-latest` và `2.0-flash` trả 429 ngay từ
             # lần gọi đầu trên free tier, nên T2 dùng `flash-latest`.
-            "gemini": ("gemini-flash-lite-latest", "gemini-flash-latest", "gemini-flash-latest"),
+            # Model sinh hướng dẫn dùng bản `lite`: hạn free tier của
+            # `gemini-flash-latest` (hiện trỏ tới gemini-3.6-flash) chỉ **20
+            # request**, cạn sau vài phút thử. Bước advise chạy sau MỌI lần phân
+            # loại thành công nên nó là chỗ tiêu quota nhanh nhất — để nó ở model
+            # đắt là hết quota giữa buổi demo.
+            "gemini": ("gemini-flash-lite-latest", "gemini-flash-latest", "gemini-flash-lite-latest"),
             "local_only": ("", "", ""),
         }
         t1, t2, text = defaults.get(self.vision_provider, ("", "", ""))

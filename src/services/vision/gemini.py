@@ -29,7 +29,14 @@ _TIMEOUT_SECONDS = 60.0
 
 # Mức "suy nghĩ" thấp nhất mà `gemini-flash-latest` và `gemini-flash-lite-latest`
 # chấp nhận (đo 01/08/2026 — đặt 0 thì API trả 400). Xem chú thích ở ``_call``.
+#
+# ``maxOutputTokens`` BAO GỒM cả token suy nghĩ, nên chỗ nào cũng phải cộng bù.
+# Phân loại là bài điền JSON theo khuôn nên nghĩ ít là đủ; viết đoạn văn hướng
+# dẫn thì model tiêu nhiều hơn hẳn (đo được 444 token) — ghìm chặt quá thì nó
+# hết hạn mức trước khi kịp viết câu nào.
 _THINKING_BUDGET = 128
+_THINKING_BUDGET_TEXT = 512
+_THINKING_HEADROOM_TEXT = 1024
 
 
 class GeminiClient:
@@ -56,18 +63,34 @@ class GeminiClient:
         return self._call(model, [{"text": build_text_prompt(text, categories)}], categories)
 
     def generate_text(self, prompt: str, model: str, max_tokens: int = 500) -> tuple[str, Usage]:
-        """Sinh văn bản thuần (dùng cho node advise). Trả về ``(text, usage)``."""
+        """Sinh văn bản thuần (dùng cho node advise). Trả về ``(text, usage)``.
+
+        Raises:
+            VisionUnavailableError: khi model không trả về được một đoạn văn
+                hoàn chỉnh. Chỗ gọi (``rag.build_advice``) bắt lỗi này và lui về
+                hướng dẫn chuẩn của danh mục — **tuyệt đối không được để văn bản
+                dở dang chảy ra màn hình cư dân.**
+        """
         if not self._api_key:
             raise VisionUnavailableError("Chưa cấu hình GEMINI_API_KEY trong .env.", code="VISION-401")
 
         url = f"{_BASE_URL}/models/{model}:generateContent?key={self._api_key}"
         payload = {
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": max_tokens},
+            "generationConfig": {
+                "temperature": 0.2,
+                # Cộng thêm phần bù cho token suy nghĩ — chúng tính vào cùng một
+                # hạn mức với câu trả lời. Xem chú thích ở ``_call``.
+                "maxOutputTokens": max_tokens + _THINKING_HEADROOM_TEXT,
+                "thinkingConfig": {"thinkingBudget": _THINKING_BUDGET_TEXT},
+            },
         }
         try:
             with httpx.Client(timeout=_TIMEOUT_SECONDS) as client:
                 response = client.post(url, json=payload)
+                if response.status_code == 400:
+                    payload["generationConfig"].pop("thinkingConfig", None)
+                    response = client.post(url, json=payload)
         except httpx.HTTPError as exc:
             raise VisionUnavailableError("Không kết nối được tới máy chủ model.", code="VISION-503") from exc
         if response.status_code >= 400:
@@ -76,6 +99,17 @@ class GeminiClient:
         body = response.json()
         candidates = body.get("candidates") or []
         text = "".join(p.get("text", "") for p in (candidates[0].get("content") or {}).get("parts", [])) if candidates else ""
+
+        # Bị cắt giữa chừng thì thứ còn lại thường là mảnh nháp của model, có
+        # khi là chính các câu lệnh trong prompt được nhại lại. Đã gặp thật:
+        # 383/400 token bị tiêu cho phần suy nghĩ và cái lọt ra màn hình là
+        # "STRICT constraint: Use ONLY provided info. DO NOT invent hours…".
+        finish_reason = (candidates[0].get("finishReason") if candidates else "") or ""
+        if finish_reason == "MAX_TOKENS" or not text.strip():
+            raise VisionUnavailableError(
+                "Model không viết xong đoạn hướng dẫn.",
+                code="VISION-502",
+            )
 
         meta = body.get("usageMetadata") or {}
         tokens_in = int(meta.get("promptTokenCount", 0) or 0)

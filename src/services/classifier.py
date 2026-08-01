@@ -362,7 +362,7 @@ def classify_waste(
     )
 
     escalation = safety.should_escalate_to_t2(
-        outcome.confidence, outcome.min_confidence, result.suspect_hazardous
+        outcome.confidence, outcome.min_confidence, result.suspect_hazardous, result.quality_issue
     )
     if escalation and model_t2 and model_t2 != model_t1:
         outcome.escalation_reason = escalation
@@ -432,6 +432,12 @@ def _finalize(outcome: ClassifyOutcome, text_query: str, quality_issue: str = ""
 
     if not outcome.category:
         return _refuse(outcome, RefusalReason.KHONG_NHAN_RA)
+
+    # Nhiều món thuộc nhiều nhóm khác nhau → một nhãn duy nhất là câu trả lời
+    # sai, **bất kể confidence**. Kiểm trước bước so ngưỡng bên dưới, vì bước
+    # đó chỉ chạy khi confidence thấp và sẽ bỏ lọt đúng ca này.
+    if safety.nhieu_nhom_khac_nhau(outcome.items):
+        return _refuse(outcome, RefusalReason.NHIEU_VAT)
 
     if outcome.confidence < outcome.min_confidence:
         quality_reason = _quality_refusal_reason(quality_issue)

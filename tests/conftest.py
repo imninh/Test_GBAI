@@ -80,6 +80,7 @@ def make_result(
     confidence: float = 0.91,
     suspect_hazardous: bool = False,
     quality_issue: str = "",
+    items: list[dict] | None = None,
     tokens_in: int = 800,
     tokens_out: int = 60,
     cost_usd: float = 0.0018,
@@ -91,5 +92,6 @@ def make_result(
         confidence=confidence,
         suspect_hazardous=suspect_hazardous,
         quality_issue=quality_issue,
+        items=items or [],
         usage=Usage(tokens_in=tokens_in, tokens_out=tokens_out, cost_usd=cost_usd, price_known=True),
     )

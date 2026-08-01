@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#e7e9e3;font-family:Nunito,system-ui,sans-serif;color:#16211a}
+  a{color:#1f8a4f;text-decoration:none}
+  a:hover{color:#2fae66}
+  button{font-family:inherit}
+  .gb-scroll::-webkit-scrollbar{width:0;height:0}
+  @keyframes gbspin{to{transform:rotate(360deg)}}
+  @keyframes gbpulse{0%,100%{opacity:1}50%{opacity:.45}}
+  @keyframes gbfade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes gbfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+</style>
+</helmet>
+<div style="min-height:100vh;background:radial-gradient(120% 90% at 50% 0%,#eef1ea 0%,#e2e5dd 60%,#daded4 100%);display:flex;flex-direction:column;align-items:center;padding:22px 16px 60px">
+
+  <sc-if value="{{ demoBar }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:22px">
+    <div style="font:700 15px Fredoka,sans-serif;color:#16211a;letter-spacing:-.01em;margin-right:4px">GreenBin<span style="color:#2fae66"> AI</span></div>
+    <div style="display:flex;background:#fff;border-radius:999px;padding:4px;box-shadow:0 2px 10px rgba(20,40,25,.08)">
+      <button onClick="{{ goResident }}" style="border:none;border-radius:999px;padding:8px 15px;font:700 13px Nunito,sans-serif;cursor:pointer;background:{{ pillResident }};color:{{ pillResidentTxt }}">Cư dân</button>
+      <button onClick="{{ goCleaner }}" style="border:none;border-radius:999px;padding:8px 15px;font:700 13px Nunito,sans-serif;cursor:pointer;background:{{ pillCleaner }};color:{{ pillCleanerTxt }}">Đội vệ sinh</button>
+      <button onClick="{{ goManager }}" style="border:none;border-radius:999px;padding:8px 15px;font:700 13px Nunito,sans-serif;cursor:pointer;background:{{ pillManager }};color:{{ pillManagerTxt }}">Ban quản lý</button>
+    </div>
+    <button onClick="{{ restart }}" style="border:1px solid rgba(20,40,25,.14);border-radius:999px;padding:8px 14px;font:600 13px Nunito,sans-serif;cursor:pointer;background:transparent;color:#3a453d">↺ Khởi động lại</button>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isMobile }}" hint-placeholder-val="{{ true }}">
+  <div style="width:392px;max-width:100%;height:820px;background:#0c0f0c;border-radius:56px;padding:12px;box-shadow:0 30px 70px -20px rgba(15,30,18,.5),0 0 0 2px rgba(255,255,255,.05) inset;position:relative">
+    <div style="position:relative;width:100%;height:100%;border-radius:45px;overflow:hidden;background:{{ screenBg }}">
+      <div style="position:absolute;top:0;left:0;right:0;height:48px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px;z-index:40;pointer-events:none;color:{{ statusColor }}">
+        <span style="font:700 15px Nunito,sans-serif">9:41</span>
+        <span style="display:flex;align-items:center;gap:6px">
+          <svg width="18" height="12" viewBox="0 0 18 12"><g fill="currentColor"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="4" width="3" height="8" rx="1"/><rect x="10" y="1.5" width="3" height="10.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1" opacity=".4"/></g></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 4.2C3 2 5.4 1 8 1s5 1 7 3.2M3.4 6.8C4.7 5.6 6.3 5 8 5s3.3.6 4.6 1.8M5.8 9.4C6.4 8.9 7.2 8.6 8 8.6s1.6.3 2.2.8"/></svg>
+          <svg width="26" height="13" viewBox="0 0 26 13"><rect x="0.5" y="0.5" width="21" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".5"/><rect x="2.2" y="2.2" width="17" height="8.6" rx="2" fill="currentColor"/><rect x="23" y="4" width="2" height="5" rx="1" fill="currentColor" opacity=".5"/></svg>
+        </span>
+      </div>
+
+      <div class="gb-scroll" style="position:absolute;inset:0;overflow-y:auto;overflow-x:hidden">
+
+        <!-- ===== RESIDENT: ONBOARDING ===== -->
+        <sc-if value="{{ sOnboarding }}" hint-placeholder-val="{{ true }}">
+        <div style="min-height:100%;background:linear-gradient(180deg,#dbeafb 0%,#e6f0fb 46%,#eef4fb 100%);display:flex;flex-direction:column;padding:60px 26px 28px;position:relative;overflow:hidden">
+          <div style="position:absolute;top:44px;left:22px;width:118px;height:118px;border-radius:24px;background:repeating-linear-gradient(135deg,#cfe6d5,#cfe6d5 9px,#c4dfcb 9px,#c4dfcb 18px);box-shadow:0 14px 30px -8px rgba(30,60,40,.28);display:flex;align-items:flex-end;justify-content:center;padding-bottom:8px;animation:gbfloat 5s ease-in-out infinite">
+            <span style="font:600 9px ui-monospace,monospace;color:#3a5a44;background:rgba(255,255,255,.8);padding:3px 6px;border-radius:7px">ảnh rác</span>
+          </div>
+          <div style="position:absolute;top:150px;left:34px;background:#fff;border-radius:999px;padding:6px 13px;display:flex;align-items:center;gap:6px;box-shadow:0 6px 16px rgba(20,40,25,.14);animation:gbfloat 5s ease-in-out .4s infinite">
+            <span style="width:11px;height:11px;border-radius:3px;background:#2f7fe0"></span><span style="font:800 12px Nunito,sans-serif">Thùng xanh dương</span>
+          </div>
+          <div style="position:absolute;top:34px;right:8px;font-size:22px;animation:gbfloat 4s ease-in-out infinite">💚</div>
+          <div style="position:absolute;top:66px;right:44px;font-size:15px;animation:gbfloat 4s ease-in-out .5s infinite">💚</div>
+          <div style="position:absolute;top:78px;right:6px;width:132px;height:132px;border-radius:50%;background:radial-gradient(circle at 45% 40%,#eafaf0,#cfeeda);box-shadow:0 14px 28px -8px rgba(30,80,50,.35);border:3px solid #fff;overflow:hidden;animation:gbfloat 6s ease-in-out .8s infinite">
+            <img src="assets/raccoon-hello.png" alt="mascot" style="position:absolute;width:150%;left:-24%;top:6%;object-fit:contain"/>
+          </div>
+          <div style="position:absolute;top:214px;right:120px;font:600 15px 'Bradley Hand',cursive;color:#5a6b5f;transform:rotate(-6deg);text-align:center">Cùng Mun<br>phân loại</div>
+          <svg style="position:absolute;top:222px;right:96px;transform:rotate(8deg)" width="42" height="34" viewBox="0 0 42 34" fill="none" stroke="#8a9a8f" stroke-width="2.4" stroke-linecap="round"><path d="M4 6c14 2 24 10 30 22"/><path d="M28 27l6 2 2-7"/></svg>
+          <div style="flex:1"></div>
+          <div style="position:absolute;left:26px;bottom:290px;width:56px;height:56px;border-radius:50%;background:linear-gradient(150deg,#3a8fea,#2f7fe0);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 22px -8px rgba(47,127,224,.7)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 19l-3-5 3-2M17 19h3l-2.5-4M12 4l2.5 4-4 1M4.5 14l2.5-4 3 1.5M17 19l-1-5M7 19h6"/></svg></div>
+          <div style="position:absolute;right:30px;bottom:300px;width:62px;height:62px;border-radius:50%;background:#fff;box-shadow:0 8px 18px -6px rgba(30,80,50,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;border:3px solid #e6f4ea"><span style="font:800 15px Fredoka,sans-serif;color:#1f8a4f;line-height:1">5</span><span style="font:800 8px Nunito,sans-serif;color:#8a938a">NGÀY</span></div>
+          <h1 style="font:700 54px/.92 Fredoka,sans-serif;letter-spacing:-.02em;margin:0 0 10px;color:#16211a;position:relative;z-index:2">Bỏ rác<br>đúng<br><span style="color:#2fae66">thùng</span></h1>
+          <p style="font:600 15px/1.4 Nunito,sans-serif;color:#4a564d;margin:0 0 22px;max-width:270px;position:relative;z-index:2">Chụp một tấm — mình mách bạn bỏ thùng nào, để ở đâu, thu gom lúc mấy giờ.</p>
+          <button onClick="{{ toLogin }}" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#16211a;color:#fff;border:none;border-radius:999px;padding:19px;font:600 18px Fredoka,sans-serif;cursor:pointer;width:100%;box-shadow:0 10px 24px -8px rgba(15,30,18,.5);position:relative;z-index:2">Bắt đầu</button>
+          <button onClick="{{ toLogin }}" style="background:none;border:none;color:#16211a;font:700 15px Nunito,sans-serif;cursor:pointer;padding:15px;width:100%;position:relative;z-index:2">Tôi đã có tài khoản</button>
+          <p style="font:600 11px/1.4 Nunito,sans-serif;color:#8a938a;text-align:center;margin:0;position:relative;z-index:2">Tiếp tục nghĩa là bạn đồng ý với <span style="color:#5a6b5f;text-decoration:underline">Điều khoản</span> & <span style="color:#5a6b5f;text-decoration:underline">Chính sách riêng tư</span></p>
+        </div>
+        </sc-if>
+
+        <!-- ===== LOGIN / DEMO ACCOUNTS ===== -->
+        <sc-if value="{{ sLogin }}" hint-placeholder-val="{{ true }}">
+        <div style="min-height:100%;background:#f4f1ea;display:flex;flex-direction:column;padding:70px 24px 30px">
+          <div style="width:60px;height:60px;border-radius:20px;background:#2fae66;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 22px -8px rgba(47,174,102,.6);margin-bottom:18px">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 19a2 2 0 0 1-2-2l-1-9h16l-1 9a2 2 0 0 1-2 2z"/><path d="M3 8h18"/><path d="M9 8V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>
+          </div>
+          <h1 style="font:700 34px/1 Fredoka,sans-serif;letter-spacing:-.02em;margin:0 0 6px">Chào bạn 👋</h1>
+          <p style="font:600 15px/1.4 Nunito,sans-serif;color:#5a6b5f;margin:0 0 22px">Chụp ảnh — biết ngay bỏ vào thùng nào.</p>
+
+          <input placeholder="Email" style="width:100%;border:1.5px solid #e0ded4;background:#fff;border-radius:14px;padding:15px 16px;font:600 15px Nunito,sans-serif;margin-bottom:10px;outline:none"/>
+          <input placeholder="Mật khẩu" type="password" style="width:100%;border:1.5px solid #e0ded4;background:#fff;border-radius:14px;padding:15px 16px;font:600 15px Nunito,sans-serif;margin-bottom:14px;outline:none"/>
+          <button onClick="{{ loginResident }}" style="background:#16211a;color:#fff;border:none;border-radius:999px;padding:17px;font:600 16px Fredoka,sans-serif;cursor:pointer;width:100%">Đăng nhập</button>
+
+          <div style="display:flex;align-items:center;gap:12px;margin:22px 0 14px"><span style="flex:1;height:1px;background:#e0ded4"></span><span style="font:700 12px Nunito,sans-serif;color:#a0a89f">TÀI KHOẢN DEMO</span><span style="flex:1;height:1px;background:#e0ded4"></span></div>
+
+          <button onClick="{{ loginResident }}" style="display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:#fff;border:1.5px solid #e6f4ea;border-radius:16px;padding:14px;cursor:pointer;margin-bottom:10px">
+            <span style="width:42px;height:42px;border-radius:12px;background:#e6f4ea;display:flex;align-items:center;justify-content:center;flex:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2fae66" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
+            <span style="flex:1"><span style="display:block;font:700 15px Nunito,sans-serif">Vào với vai trò Cư dân</span><span style="display:block;font:600 12px Nunito,sans-serif;color:#8a938a">Hỏi phân loại · đăng ký thu gom · theo dõi yêu cầu</span></span>
+            <span style="font:700 18px Nunito,sans-serif;color:#2fae66">›</span>
+          </button>
+          <button onClick="{{ loginCleaner }}" style="display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:#fff;border:1.5px solid #e2eefb;border-radius:16px;padding:14px;cursor:pointer;margin-bottom:10px">
+            <span style="width:42px;height:42px;border-radius:12px;background:#e2eefb;display:flex;align-items:center;justify-content:center;flex:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2f7fe0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h13l3 4h2v3h-2M3 7h9v9H3z"/><circle cx="7" cy="19" r="1.6"/><circle cx="17" cy="19" r="1.6"/></svg></span>
+            <span style="flex:1"><span style="display:block;font:700 15px Nunito,sans-serif">Vào với vai trò Đội vệ sinh</span><span style="display:block;font:600 12px Nunito,sans-serif;color:#8a938a">Tuyến hôm nay · đánh dấu đã thu · xác nhận nhãn</span></span>
+            <span style="font:700 18px Nunito,sans-serif;color:#2f7fe0">›</span>
+          </button>
+          <button onClick="{{ loginManager }}" style="display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:#fff;border:1.5px solid #ece7f6;border-radius:16px;padding:14px;cursor:pointer;margin-bottom:16px">
+            <span style="width:42px;height:42px;border-radius:12px;background:#ece7f6;display:flex;align-items:center;justify-content:center;flex:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7c5cdf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 9h18M8 18v2M16 18v2"/></svg></span>
+            <span style="flex:1"><span style="display:block;font:700 15px Nunito,sans-serif">Vào với vai trò Ban quản lý</span><span style="display:block;font:600 12px Nunito,sans-serif;color:#8a938a">Duyệt yêu cầu · duyệt tuyến · vận hành & chi phí</span></span>
+            <span style="font:700 18px Nunito,sans-serif;color:#7c5cdf">›</span>
+          </button>
+          <p style="font:600 11px/1.5 Nunito,sans-serif;color:#9aa39a;text-align:center;margin:0">Hệ thống demo dùng dữ liệu mô phỏng và dữ liệu công khai. Ảnh tải lên được tự động xoá thông tin vị trí và làm mờ khuôn mặt trước khi xử lý.</p>
+        </div>
+        </sc-if>
+
+        <!-- ===== ASK (HOME) ===== -->
+        <sc-if value="{{ sAsk }}" hint-placeholder-val="{{ true }}">
+        <div style="min-height:100%;background:linear-gradient(180deg,#eaf6ee 0%,#f2f4ec 40%);display:flex;flex-direction:column;padding:54px 20px 108px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+            <div style="font:700 22px Fredoka,sans-serif;letter-spacing:-.01em;white-space:nowrap">GreenBin<span style="color:#2fae66"> AI</span></div>
+            <div style="display:flex;align-items:center;gap:8px;background:#fff;border-radius:999px;padding:6px 12px 6px 6px;box-shadow:0 2px 8px rgba(20,40,25,.06)">
+              <span style="width:26px;height:26px;border-radius:50%;background:#e6f4ea;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2fae66" stroke-width="2.4"><path d="M3 21V9l9-6 9 6v12" stroke-linejoin="round"/></svg></span>
+              <span style="font:700 13px Nunito,sans-serif">S1-1203</span>
+            </div>
+          </div>
+
+          <div style="position:relative;display:flex;flex-direction:column;align-items:center;margin-top:14px">
+            <div style="position:absolute;top:2px;background:#fff;border-radius:20px 20px 20px 6px;padding:11px 16px;box-shadow:0 6px 18px -6px rgba(20,40,25,.2);z-index:3;font:700 15px Fredoka,sans-serif;color:#16211a">Đưa mình xem món rác nhé!</div>
+            <div style="width:250px;height:230px;margin-top:34px;background:radial-gradient(circle at 50% 60%,#d8f0e0 0%,rgba(216,240,224,0) 68%);display:flex;align-items:flex-end;justify-content:center">
+              <img src="assets/raccoon-hello.png" alt="Mun" style="width:238px;height:auto;filter:drop-shadow(0 16px 20px rgba(30,80,50,.22));animation:gbfloat 5s ease-in-out infinite"/>
+            </div>
+          </div>
+
+          <button onClick="{{ shotRecycle }}" style="display:flex;align-items:center;justify-content:center;gap:11px;width:100%;background:#16211a;color:#fff;border:none;border-radius:20px;padding:19px;font:600 18px Fredoka,sans-serif;cursor:pointer;box-shadow:0 12px 26px -10px rgba(15,30,18,.6);margin-top:6px">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h1l1.2-2h5.6L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" transform="translate(1 0)"/><circle cx="12" cy="13" r="3.4"/></svg>
+            Chụp món rác
+          </button>
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <button onClick="{{ shotRecycle }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:#fff;border:1.5px solid #e6f4ea;color:#16211a;border-radius:16px;padding:14px;font:700 14px Nunito,sans-serif;cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2fae66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-4 4 3 3-2 6 5"/></svg>Chọn ảnh</button>
+            <button onClick="{{ toAsk }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:#fff;border:1.5px solid #e6f4ea;color:#16211a;border-radius:16px;padding:14px;font:700 14px Nunito,sans-serif;cursor:pointer"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2fae66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Mô tả chữ</button>
+          </div>
+
+          <div style="font:700 13px Nunito,sans-serif;color:#8a938a;margin:22px 2px 10px">Hỏi nhanh không cần chụp</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <button onClick="{{ shotRecycle }}" style="background:#fff;border:1.5px solid #e6f4ea;border-radius:999px;padding:10px 15px;font:700 13px Nunito,sans-serif;cursor:pointer;color:#16211a">Hộp sữa giấy</button>
+            <button onClick="{{ shotRecycle }}" style="background:#fff;border:1.5px solid #e6f4ea;border-radius:999px;padding:10px 15px;font:700 13px Nunito,sans-serif;cursor:pointer;color:#16211a">Ly trà sữa</button>
+            <button onClick="{{ shotHazard }}" style="background:#fdeee6;border:1.5px solid #f6cdb8;border-radius:999px;padding:10px 15px;font:700 13px Nunito,sans-serif;cursor:pointer;color:#c1471c">Pin cũ</button>
+            <button onClick="{{ shotUnsure }}" style="background:#eef1f6;border:1.5px solid #d9e0ec;border-radius:999px;padding:10px 15px;font:700 13px Nunito,sans-serif;cursor:pointer;color:#4a5568">Chai hoá chất</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ===== PROCESSING ===== -->
+        <sc-if value="{{ sProcessing }}" hint-placeholder-val="{{ true }}">
+        <div style="min-height:100%;background:linear-gradient(180deg,#0c0f0c,#12211a);display:flex;flex-direction:column;padding:64px 26px 30px;color:#fff">
+          <div style="font:700 13px Nunito,sans-serif;color:#7fd7a4;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">Đang xem giúp bạn…</div>
+          <h1 style="font:700 28px/1.1 Fredoka,sans-serif;margin:0 0 6px">Mình xử lý ảnh<br>ngay trên máy bạn</h1>
+          <p style="font:600 13px Nunito,sans-serif;color:#9fb3a6;margin:0 0 26px">Quyền riêng tư được lo trước khi ảnh rời máy.</p>
+          <div style="width:210px;height:200px;align-self:center;display:flex;align-items:center;justify-content:center;margin-bottom:24px;background:radial-gradient(circle at 50% 55%,rgba(127,215,164,.22) 0%,rgba(127,215,164,0) 68%)">
+            <img src="assets/raccoon-magnify.png" alt="Đang soi" style="width:200px;height:auto;filter:drop-shadow(0 12px 18px rgba(0,0,0,.35));animation:gbfloat 4s ease-in-out infinite"/>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <sc-for list="{{ procSteps }}" as="st" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:14px;opacity:{{ st.opacity }}">
+                <span style="width:26px;height:26px;flex:none;display:flex;align-items:center;justify-content:center">
+                  <sc-if value="{{ st.isDone }}" hint-placeholder-val="{{ true }}"><span style="width:24px;height:24px;border-radius:50%;background:#2fae66;display:flex;align-items:center;justify-content:center;font:700 14px Nunito;color:#fff">✓</span></sc-if>
+                  <sc-if value="{{ st.isActive }}" hint-placeholder-val="{{ false }}"><span style="width:22px;height:22px;border-radius:50%;border:2.5px solid rgba(127,215,164,.3);border-top-color:#7fd7a4;animation:gbspin .8s linear infinite"></span></sc-if>
+                  <sc-if value="{{ st.isPending }}" hint-placeholder-val="{{ false }}"><span style="width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,.2)"></span></sc-if>
+                </span>
+                <span style="flex:1;font:700 15px Nunito,sans-serif;color:{{ st.labelColor }}">{{ st.label }}</span>
+                <span style="font:600 12px Nunito,sans-serif;color:#7fd7a4">{{ st.detail }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="flex:1"></div>
+          <button onClick="{{ cancelProc }}" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;border-radius:999px;padding:15px;font:700 15px Nunito,sans-serif;cursor:pointer;width:100%">Huỷ</button>
+        </div>
+        </sc-if>
+
+        <!-- ===== RESULT (recyclable) ===== -->
+        <sc-if value="{{ sResultRecycle }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%;background:#f4f1ea;padding:44px 0 40px">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 18px 12px">
+            <button onClick="{{ back }}" style="width:38px;height:38px;border-radius:50%;background:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(20,40,25,.08);font:700 18px Nunito;color:#16211a">‹</button>
+            <span style="font:700 15px Nunito,sans-serif;color:#6b756c">Kết quả phân loại</span>
+          </div>
+          <div style="padding:0 16px">
+            <div style="background:linear-gradient(155deg,#3a8fea,#2f7fe0);border-radius:24px;padding:22px;color:#fff;box-shadow:0 16px 30px -14px rgba(47,127,224,.7);animation:gbfade .4s ease">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+                <span style="width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 19l-3-5 3-2M17 19h3l-2.5-4M12 4l2.5 4-4 1M4.5 14l2.5-4 3 1.5M17 19l-1-5M7 19h6"/></svg></span>
+                <div><div style="font:700 12px Nunito,sans-serif;opacity:.85;letter-spacing:.05em">BỎ VÀO</div><div style="font:700 22px Fredoka,sans-serif;line-height:1.05">Thùng xanh dương<br>— Tái chế</div></div>
+              </div>
+              <div style="font:700 17px Nunito,sans-serif;margin-bottom:12px">Hộp sữa giấy tráng nhôm</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <span style="background:#eafaf0;color:#1f8a4f;border-radius:999px;padding:6px 12px;font:800 12px Nunito,sans-serif">● Chắc chắn · 0,91</span>
+                <span style="background:rgba(255,255,255,.22);color:#fff;border-radius:999px;padding:6px 12px;font:700 12px Nunito,sans-serif">🔍 Đã kiểm tra kỹ</span>
+              </div>
+            </div>
+
+            <div style="background:#fff;border-radius:20px;padding:18px;margin-top:14px">
+              <div style="font:700 15px Nunito,sans-serif;margin-bottom:12px">Làm nhanh trước khi bỏ</div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div style="display:flex;gap:10px;align-items:flex-start"><span style="width:22px;height:22px;border-radius:7px;background:#e6f4ea;flex:none;display:flex;align-items:center;justify-content:center;font:800 12px Nunito;color:#2fae66">1</span><span style="font:600 14px/1.35 Nunito,sans-serif">Đổ hết sữa thừa, tráng qua nước cho đỡ mùi</span></div>
+                <div style="display:flex;gap:10px;align-items:flex-start"><span style="width:22px;height:22px;border-radius:7px;background:#e6f4ea;flex:none;display:flex;align-items:center;justify-content:center;font:800 12px Nunito;color:#2fae66">2</span><span style="font:600 14px/1.35 Nunito,sans-serif">Bóp dẹp hộp cho gọn</span></div>
+                <div style="display:flex;gap:10px;align-items:flex-start"><span style="width:22px;height:22px;border-radius:7px;background:#e6f4ea;flex:none;display:flex;align-items:center;justify-content:center;font:800 12px Nunito;color:#2fae66">3</span><span style="font:600 14px/1.35 Nunito,sans-serif">Không cần tách lớp bạc bên trong</span></div>
+              </div>
+            </div>
+
+            <div style="background:#fff;border-radius:20px;padding:18px;margin-top:12px">
+              <div style="display:flex;gap:11px;align-items:flex-start;margin-bottom:12px"><span style="width:32px;height:32px;border-radius:10px;background:#e2eefb;flex:none;display:flex;align-items:center;justify-content:center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2f7fe0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.6-7-11a7 7 0 0 1 14 0c0 5.4-7 11-7 11z"/><circle cx="12" cy="10" r="2.4"/></svg></span><span style="font:600 14px/1.4 Nunito,sans-serif"><b style="font-weight:800">Phòng rác tầng 3, toà S1</b><br>Thùng xanh dương thứ 2</span></div>
+              <div style="display:flex;gap:11px;align-items:flex-start"><span style="width:32px;height:32px;border-radius:10px;background:#e6f4ea;flex:none;display:flex;align-items:center;justify-content:center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2fae66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span style="font:600 14px/1.4 Nunito,sans-serif">Thu gom: <b style="font-weight:800">Thứ 3, 5, 7 · 18:00–20:00</b><br><span style="color:#1f8a4f;font-weight:800">Lần thu gần nhất: hôm nay 18:00 — còn 4 giờ</span></span></div>
+            </div>
+
+            <div style="margin-top:14px">
+              <div style="font:700 13px Nunito,sans-serif;color:#8a938a;margin:0 2px 8px">Nguồn hướng dẫn</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button onClick="{{ openSource }}" style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #e0ded4;border-radius:12px;padding:9px 12px;font:700 12px Nunito,sans-serif;cursor:pointer;color:#3a453d"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2fae66" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg>Nội quy toà S1 · mục 4.2</button>
+                <button onClick="{{ openSource }}" style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #e0ded4;border-radius:12px;padding:9px 12px;font:700 12px Nunito,sans-serif;cursor:pointer;color:#3a453d"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2fae66" stroke-width="2"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg>NĐ 45/2022 · Điều 26</button>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;margin-top:16px">
+              <button style="flex:1;background:#fff;border:1.5px solid #e6f4ea;border-radius:14px;padding:13px;font:700 14px Nunito,sans-serif;cursor:pointer;color:#1f8a4f">👍 Hữu ích</button>
+              <button style="flex:1;background:#fff;border:1.5px solid #e0ded4;border-radius:14px;padding:13px;font:700 14px Nunito,sans-serif;cursor:pointer;color:#6b756c">👎 Sai rồi</button>
+            </div>
+            <button onClick="{{ toPickup }}" style="width:100%;margin-top:8px;background:#ece7f6;border:1.5px solid #d9cef0;border-radius:14px;padding:14px;font:700 14px Nunito,sans-serif;cursor:pointer;color:#6a4dc4;display:flex;align-items:center;justify-content:center;gap:8px">📦 Món này cồng kềnh — đặt lịch thu gom ›</button>
+            <button onClick="{{ toPrivacy }}" style="width:100%;margin-top:12px;background:none;border:none;font:700 13px Nunito,sans-serif;cursor:pointer;color:#5a6b5f;text-decoration:underline">Ảnh của bạn được xử lý thế nào?</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ===== RESULT (hazardous) ===== -->
+        <sc-if value="{{ sResultHazard }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%;background:#fbeadf;padding:44px 0 40px">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 18px 12px">
+            <button onClick="{{ back }}" style="width:38px;height:38px;border-radius:50%;background:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(20,40,25,.08);font:700 18px Nunito;color:#16211a">‹</button>
+            <span style="font:700 15px Nunito,sans-serif;color:#a04b26">Kết quả phân loại</span>
+          </div>
+          <div style="padding:0 16px">
+            <div style="background:#fff;border:3px solid #e05a2b;border-radius:22px;padding:20px;box-shadow:0 0 0 5px rgba(224,90,43,.12);animation:gbfade .4s ease">
+              <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px">
+                <span style="width:46px;height:46px;border-radius:14px;background:#e05a2b;display:flex;align-items:center;justify-content:center;flex:none"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L2 20h20z"/><path d="M12 10v4M12 17v.5"/></svg></span>
+                <div><div style="font:800 12px Nunito,sans-serif;color:#c1471c;letter-spacing:.05em">RÁC NGUY HẠI — KHÔNG BỎ CHUNG</div><div style="font:700 20px Fredoka,sans-serif;color:#16211a">Pin lithium (sạc dự phòng)</div></div>
+              </div>
+              <div style="background:#fbeadf;border-radius:14px;padding:14px;margin-bottom:12px">
+                <div style="font:800 13px Nunito,sans-serif;color:#c1471c;margin-bottom:8px">❗ Tuyệt đối KHÔNG</div>
+                <div style="font:700 14px/1.5 Nunito,sans-serif;color:#7a3418">• Bỏ vào thùng rác thường<br>• Vứt chung rác thực phẩm<br>• Làm thủng, đè bẹp hay đốt</div>
+              </div>
+              <div style="background:#e6f4ea;border-radius:14px;padding:14px">
+                <div style="font:800 13px Nunito,sans-serif;color:#1f8a4f;margin-bottom:6px">✓ Nên làm</div>
+                <div style="font:700 14px/1.5 Nunito,sans-serif;color:#2a5a3a">Mang tới điểm thu pin <b>tầng hầm B1</b>, hoặc đăng ký để đội vệ sinh nhận tận nơi.</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:7px;margin-top:12px;padding:8px 10px;background:#f7f2ea;border-radius:10px">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a7a5a" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16v.5" stroke-linecap="round"/></svg>
+                <span style="font:700 11px Nunito,sans-serif;color:#8a7a5a">Cảnh báo an toàn theo danh mục chuẩn — không do AI tự viết.</span>
+              </div>
+            </div>
+            <button onClick="{{ toPickup }}" style="width:100%;margin-top:14px;background:#16211a;color:#fff;border:none;border-radius:14px;padding:15px;font:700 15px Fredoka,sans-serif;cursor:pointer">Đăng ký đội vệ sinh tới nhận ›</button>
+            <button onClick="{{ openSource }}" style="width:100%;margin-top:10px;background:#fff;border:1.5px solid #e0ded4;border-radius:14px;padding:13px;font:700 13px Nunito,sans-serif;cursor:pointer;color:#3a453d">Xem danh mục rác nguy hại</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ===== UNSURE (refusal) ===== -->
+        <sc-if value="{{ sUnsure }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%;background:linear-gradient(180deg,#e6edf5,#eef1f5);padding:44px 0 40px">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 18px 12px">
+            <button onClick="{{ back }}" style="width:38px;height:38px;border-radius:50%;background:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(20,40,25,.08);font:700 18px Nunito;color:#16211a">‹</button>
+          </div>
+          <div style="padding:0 22px">
+            <div style="width:66px;height:66px;border-radius:22px;background:#dbe6f2;display:flex;align-items:center;justify-content:center;margin-bottom:18px;font-size:34px">🤔</div>
+            <h1 style="font:700 27px/1.15 Fredoka,sans-serif;margin:0 0 12px;color:#243244">Mình chưa đủ chắc để hướng dẫn món này</h1>
+            <p style="font:600 15px/1.5 Nunito,sans-serif;color:#4a5568;margin:0 0 18px">Ảnh hơi tối nên mình không đọc được nhãn. Đoán gần nhất: <b>có thể là chai hoá chất tẩy rửa</b> — nhưng nhóm này nếu hướng dẫn sai thì nguy hiểm, nên mình không đoán bừa.</p>
+            <div style="background:#fff;border-radius:16px;padding:14px 16px;margin-bottom:20px">
+              <div style="font:700 13px Nunito,sans-serif;color:#64748b;margin-bottom:8px">Vì sao chưa chắc</div>
+              <div style="display:flex;flex-wrap:wrap;gap:7px">
+                <span style="background:#eef2f7;border-radius:999px;padding:6px 11px;font:700 12px Nunito,sans-serif;color:#475569">Ảnh tối</span>
+                <span style="background:#eef2f7;border-radius:999px;padding:6px 11px;font:700 12px Nunito,sans-serif;color:#475569">Nhãn bị che</span>
+                <span style="background:#fdeee6;border-radius:999px;padding:6px 11px;font:700 12px Nunito,sans-serif;color:#c1471c">Nhóm nguy hại cần độ chắc cao hơn</span>
+              </div>
+            </div>
+            <button onClick="{{ back }}" style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;background:#243244;color:#fff;border:none;border-radius:14px;padding:16px;font:700 15px Fredoka,sans-serif;cursor:pointer;margin-bottom:10px">📷 Chụp lại rõ hơn</button>
+            <button onClick="{{ askManager }}" style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;background:#fff;border:1.5px solid #cbd5e1;color:#243244;border-radius:14px;padding:16px;font:700 15px Nunito,sans-serif;cursor:pointer;margin-bottom:10px">💬 Hỏi ban quản lý</button>
+            <button onClick="{{ openSource }}" style="display:flex;align-items:center;justify-content:center;gap:9px;width:100%;background:none;border:none;color:#5a6b7f;border-radius:14px;padding:12px;font:700 14px Nunito,sans-serif;cursor:pointer;text-decoration:underline">📖 Xem danh mục rác nguy hại</button>
+            <p style="font:600 12px Nunito,sans-serif;color:#7a8798;text-align:center;margin:8px 0 0">Thường được trả lời trong vòng 2 giờ làm việc.</p>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ===== PRIVACY ===== -->
+        <sc-if value="{{ sPrivacy }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%;background:#f4f1ea;padding:44px 0 40px">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 18px 12px">
+            <button onClick="{{ back }}" style="width:38px;height:38px;border-radius:50%;background:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(20,40,25,.08);font:700 18px Nunito;color:#16211a">‹</button>
+            <span style="font:700 15px Nunito,sans-serif;color:#6b756c">Ảnh của bạn được xử lý thế nào</span>
+          </div>
+          <div style="padding:0 16px">
+            <h1 style="font:700 24px/1.15 Fredoka,sans-serif;margin:6px 0 14px">Mình lo quyền riêng tư<br>trước khi ảnh rời máy</h1>
+            <div style="display:flex;gap:10px;margin-bottom:16px">
+              <div style="flex:1"><div style="font:700 11px Nunito;color:#8a938a;margin-bottom:6px">Ảnh gốc (chỉ có trên máy)</div><div style="aspect-ratio:3/4;border-radius:16px;background:repeating-linear-gradient(135deg,#d8ded2,#d8ded2 8px,#cfd6c8 8px,#cfd6c8 16px);display:flex;align-items:center;justify-content:center;font:600 10px ui-monospace,monospace;color:#5a6b5f">ảnh gốc</div></div>
+              <div style="flex:1"><div style="font:700 11px Nunito;color:#2fae66;margin-bottom:6px">Đã gửi cho AI</div><div style="aspect-ratio:3/4;border-radius:16px;background:repeating-linear-gradient(135deg,#dfeadf,#dfeadf 8px,#d5e2d5 8px,#d5e2d5 16px);position:relative;display:flex;align-items:center;justify-content:center;font:600 10px ui-monospace,monospace;color:#3a5a44"><span style="position:absolute;top:22%;left:30%;width:40%;height:22%;border-radius:10px;background:rgba(60,90,68,.35);backdrop-filter:blur(2px);border:2px dashed rgba(255,255,255,.7)"></span>đã xử lý</div></div>
+            </div>
+            <div style="background:#fff;border-radius:18px;overflow:hidden">
+              <div style="display:flex;font:800 12px Nunito;color:#8a938a;padding:12px 16px;border-bottom:1px solid #eee7db"><span style="flex:1.4">Thông tin</span><span style="flex:1">Ảnh gốc</span><span style="flex:1;text-align:right">Đã gửi đi</span></div>
+              <sc-for list="{{ privacyRows }}" as="r" hint-placeholder-count="5">
+                <div style="display:flex;align-items:center;font:600 13px Nunito;padding:11px 16px;border-bottom:1px solid #f2ede2"><span style="flex:1.4;color:#3a453d">{{ r.k }}</span><span style="flex:1;color:#6b756c">{{ r.a }}</span><span style="flex:1;text-align:right;font-weight:800;color:{{ r.color }}">{{ r.b }}</span></div>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin:14px 2px;font:700 12px Nunito;color:#8a938a"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8a938a" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v6l4 2" stroke-linecap="round"/></svg>Ảnh này sẽ tự động xoá sau 30 ngày.</div>
+            <div style="display:flex;gap:8px">
+              <button style="flex:1;background:#fff;border:1.5px solid #e0ded4;border-radius:14px;padding:14px;font:700 14px Nunito;cursor:pointer;color:#3a453d">Tải bản đã xử lý</button>
+              <button style="flex:1;background:#fdeee6;border:1.5px solid #f6cdb8;border-radius:14px;padding:14px;font:700 14px Nunito;cursor:pointer;color:#c1471c">Xoá ngay</button>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ===== PICKUP WIZARD ===== -->
+        <sc-if value="{{ sPickup }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%;background:#f4f1ea;padding:44px 0 40px">
+          <div style="display:flex;align-items:center;gap:12px;padding:6px 18px 14px">
+            <button onClick="{{ pwBack }}" style="width:38px;height:38px;border-radius:50%;background:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(20,40,25,.08);font:700 18px Nunito;color:#16211a">‹</button>
+            <div style="flex:1;display:flex;gap:6px">
+              <span style="flex:1;height:5px;border-radius:3px;background:{{ pw1 }}"></span>
+              <span style="flex:1;height:5px;border-radius:3px;background:{{ pw2 }}"></span>
+              <span style="flex:1;height:5px;border-radius:3px;background:{{ pw3 }}"></span>
+            </div>
+          </div>
+          <div style="padding:0 18px">
+            <sc-if value="{{ pwS1 }}" hint-placeholder-val="{{ true }}">
+              <div style="font:700 13px Nunito;color:#7c5cdf;margin-bottom:4px">Bước 1/3</div>
+              <h1 style="font:700 26px Fredoka,sans-serif;margin:0 0 4px">Món cần thu gom</h1>
+              <p style="font:600 13px Nunito;color:#8a938a;margin:0 0 16px">Chụp ảnh để AI tự điền tên, nhóm và ước lượng khối lượng.</p>
+              <div style="background:#fff;border-radius:18px;padding:14px;display:flex;gap:12px;margin-bottom:10px">
+                <div style="width:64px;height:64px;border-radius:12px;background:repeating-linear-gradient(135deg,#ece7f6,#ece7f6 7px,#e3daf3 7px,#e3daf3 14px);flex:none"></div>
+                <div style="flex:1"><div style="font:800 15px Nunito">Tủ gỗ nhỏ</div><div style="display:flex;gap:6px;margin:6px 0"><span style="background:#ece7f6;color:#6a4dc4;border-radius:8px;padding:3px 9px;font:800 11px Nunito">Đồ cồng kềnh</span><span style="background:#f2ede2;color:#8a7a5a;border-radius:8px;padding:3px 9px;font:700 11px Nunito">~30 kg</span></div><div style="font:700 11px Nunito;color:#b58a2a;display:flex;align-items:center;gap:4px">✦ AI ước lượng — kiểm tra lại giúp mình</div></div>
+              </div>
+              <div style="background:#fff;border-radius:18px;padding:14px;display:flex;gap:12px;margin-bottom:10px">
+                <div style="width:64px;height:64px;border-radius:12px;background:repeating-linear-gradient(135deg,#ece7f6,#ece7f6 7px,#e3daf3 7px,#e3daf3 14px);flex:none"></div>
+                <div style="flex:1"><div style="font:800 15px Nunito">2 thùng carton</div><div style="display:flex;gap:6px;margin:6px 0"><span style="background:#e2eefb;color:#2f7fe0;border-radius:8px;padding:3px 9px;font:800 11px Nunito">Tái chế</span><span style="background:#f2ede2;color:#8a7a5a;border-radius:8px;padding:3px 9px;font:700 11px Nunito">~18 kg</span></div></div>
+              </div>
+              <button style="width:100%;background:#fff;border:1.5px dashed #cbb8ee;border-radius:14px;padding:14px;font:700 14px Nunito;color:#6a4dc4;cursor:pointer">+ Thêm món</button>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin:16px 2px 0;font:700 14px Nunito"><span style="color:#8a938a">Tổng ước tính</span><span style="font:800 18px Fredoka;color:#16211a">48 kg</span></div>
+            </sc-if>
+
+            <sc-if value="{{ pwS2 }}" hint-placeholder-val="{{ false }}">
+              <div style="font:700 13px Nunito;color:#7c5cdf;margin-bottom:4px">Bước 2/3</div>
+              <h1 style="font:700 26px Fredoka,sans-serif;margin:0 0 16px">Chọn thời gian</h1>
+              <div style="font:700 13px Nunito;color:#8a938a;margin-bottom:8px">Khung giờ khả dụng</div>
+              <button style="width:100%;text-align:left;background:#e6f4ea;border:2px solid #2fae66;border-radius:16px;padding:15px;cursor:pointer;margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:800 15px Nunito">Thứ 5, 08:00–10:00</span><span style="width:22px;height:22px;border-radius:50%;background:#2fae66;color:#fff;display:flex;align-items:center;justify-content:center;font:800 13px Nunito">✓</span></div>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:8px;font:700 12px Nunito;color:#1f8a4f"><svg width="16" height="14" viewBox="0 0 24 24" fill="none" stroke="#1f8a4f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h13l3 4h2v3h-2M3 7h9v9H3z"/></svg>Đã có chuyến của toà S1 — chọn khung này tiết kiệm 1 chuyến xe</div>
+              </button>
+              <button style="width:100%;text-align:left;background:#fff;border:1.5px solid #e0ded4;border-radius:16px;padding:15px;cursor:pointer;margin-bottom:10px;font:800 15px Nunito;color:#3a453d">Thứ 6, 14:00–16:00</button>
+              <button style="width:100%;text-align:left;background:#fff;border:1.5px solid #e0ded4;border-radius:16px;padding:15px;cursor:pointer;margin-bottom:16px;font:800 15px Nunito;color:#3a453d">Thứ 7, 08:00–10:00</button>
+              <textarea placeholder="Ghi chú thêm (VD: để ở sảnh tầng 1)" style="width:100%;border:1.5px solid #e0ded4;border-radius:14px;padding:13px;font:600 14px Nunito;min-height:70px;outline:none;resize:none"></textarea>
+            </sc-if>
+
+            <sc-if value="{{ pwS3 }}" hint-placeholder-val="{{ false }}">
+              <div style="font:700 13px Nunito;color:#7c5cdf;margin-bottom:4px">Bước 3/3</div>
+              <h1 style="font:700 26px Fredoka,sans-serif;margin:0 0 16px">Xác nhận</h1>
+              <div style="background:#fff;border-radius:16px;padding:16px;margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;font:700 14px Nunito;padding:5px 0"><span style="color:#8a938a">Số món</span><span>3 món</span></div>
+                <div style="display:flex;justify-content:space-between;font:700 14px Nunito;padding:5px 0"><span style="color:#8a938a">Tổng khối lượng</span><span style="font-weight:800">48 kg</span></div>
+                <div style="display:flex;justify-content:space-between;font:700 14px Nunito;padding:5px 0"><span style="color:#8a938a">Thời gian</span><span>Thứ 5, 08:00–10:00</span></div>
+              </div>
+              <div style="background:#fff7e6;border:1.5px solid #f2d999;border-radius:16px;padding:15px;margin-bottom:12px">
+                <div style="display:flex;gap:9px"><span style="font-size:18px">⏳</span><div><div style="font:800 14px Nunito;color:#a8791a;margin-bottom:4px">Cần ban quản lý duyệt</div><div style="font:600 13px/1.5 Nunito;color:#7a5c14">Tổng <b>48 kg</b> vượt ngưỡng tự động <b>(30 kg)</b>, nên cần BQL duyệt trước khi lên lịch. Bạn sẽ nhận thông báo trong vòng 1 ngày làm việc.</div></div></div>
+              </div>
+              <label style="display:flex;gap:10px;align-items:flex-start;background:#fff;border-radius:14px;padding:14px;cursor:pointer;font:600 13px/1.4 Nunito;color:#3a453d"><span style="width:22px;height:22px;border-radius:6px;background:#2fae66;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font:800 13px Nunito">✓</span>Tôi xác nhận các món trên không chứa rác nguy hại (pin, hoá chất, bóng đèn, thuốc).</label>
+            </sc-if>
+
+            <sc-if value="{{ pwS4 }}" hint-placeholder-val="{{ false }}">
+              <div style="text-align:center;padding:24px 0 10px">
+                <div style="width:74px;height:74px;border-radius:50%;background:#e6f4ea;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:36px;color:#2fae66">✓</div>
+                <h1 style="font:700 25px Fredoka,sans-serif;margin:0 0 4px">Đã gửi yêu cầu!</h1>
+                <div style="font:800 15px Nunito;color:#7c5cdf;margin-bottom:18px">#PR-2026-0147</div>
+              </div>
+              <div style="background:#fff;border-radius:18px;padding:16px">
+                <div style="display:flex;gap:12px;margin-bottom:14px"><span style="width:22px;height:22px;border-radius:50%;background:#2fae66;color:#fff;display:flex;align-items:center;justify-content:center;font:800 12px Nunito;flex:none">✓</span><div style="font:700 13px Nunito"><span style="color:#8a938a;font-weight:600">14:20 · </span>Đã gửi yêu cầu</div></div>
+                <div style="display:flex;gap:12px;margin-bottom:14px"><span style="width:22px;height:22px;border-radius:50%;background:#2fae66;color:#fff;display:flex;align-items:center;justify-content:center;font:800 12px Nunito;flex:none">✓</span><div style="font:700 13px Nunito"><span style="color:#8a938a;font-weight:600">14:20 · </span>Vượt ngưỡng 30 kg — chuyển BQL duyệt</div></div>
+                <div style="display:flex;gap:12px"><span style="width:22px;height:22px;border-radius:50%;background:#f2d999;color:#a8791a;display:flex;align-items:center;justify-content:center;font:800 12px Nunito;flex:none">⏳</span><div style="font:700 13px Nunito;color:#a8791a">Chờ ban quản lý duyệt</div></div>
+              </div>
+              <button onClick="{{ toRequests }}" style="width:100%;margin-top:16px;background:#16211a;color:#fff;border:none;border-radius:14px;padding:15px;font:700 15px Fredoka;cursor:pointer">Xem yêu cầu của tôi</button>
+            </sc-if>
+          </div>
+          <sc-if value="{{ pwShowNext }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:16px 18px 0">
+            <button onClick="{{ pwNext }}" style="width:100%;background:#16211a;color:#fff;border:none;border-radius:14px;padding:16px;font:700 16px Fredoka;cursor:pointer">{{ pwNextLabel }}</button>
+          </div>
+          </sc-if>
+        </div>
+        </sc-if>
+
+        <!-- ===== REQUESTS LIST ===== -->
+        <sc-if value="{{ sRequests }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%;background:#f4f1ea;padding:54px 18px 108px">
+          <h1 style="font:700 28px Fredoka,sans-serif;margin:0 0 16px">Yêu cầu của tôi</h1>
+          <div onClick="{{ toRequestDetail }}" style="background:#fff;border-radius:18px;padding:16px;margin-bottom:12px;cursor:pointer;border:1px solid #eee7db">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font:800 14px Nunito;color:#7c5cdf">#PR-2026-0147</span><span style="background:#fff7e6;color:#a8791a;border-radius:999px;padding:5px 11px;font:800 12px Nunito">⏳ Chờ duyệt</span></div>
+            <div style="font:700 15px Nunito;margin-bottom:4px">Tủ gỗ, 2 thùng carton</div>
+            <div style="font:600 13px Nunito;color:#8a938a">48 kg · mong muốn 30/07 · cập nhật 14:20</div>
+          </div>
+          <div style="background:#fff;border-radius:18px;padding:16px;margin-bottom:12px;border:1px solid #eee7db">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font:800 14px Nunito;color:#7c5cdf">#PR-2026-0132</span><span style="background:#e6f4ea;color:#1f8a4f;border-radius:999px;padding:5px 11px;font:800 12px Nunito">✓ Đã xếp tuyến</span></div>
+            <div style="font:700 15px Nunito;margin-bottom:4px">Ghế sofa cũ</div>
+            <div style="font:600 13px Nunito;color:#8a938a">22 kg · thu gom 25/07 · đi cùng 3 hộ khác</div>
+          </div>
+          <div style="background:#fff;border-radius:18px;padding:16px;border:1px solid #eee7db;opacity:.8">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font:800 14px Nunito;color:#7c5cdf">#PR-2026-0098</span><span style="background:#eef1ec;color:#6b756c;border-radius:999px;padding:5px 11px;font:800 12px Nunito">✓ Đã thu xong</span></div>
+            <div style="font:700 15px Nunito;margin-bottom:4px">Nệm cũ</div>
+            <div style="font:600 13px Nunito;color:#8a938a">15 kg · thu gom 12/07</div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ===== REQUEST DETAIL ===== -->
+        <sc-if value="{{ sRequestDetail }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%;background:#f4f1ea;padding:44px 0 40px">
+          <div style="display:flex;align-items:center;gap:10px;padding:6px 18px 12px">
+            <button onClick="{{ back }}" style="width:38px;height:38px;border-radius:50%;background:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(20,40,25,.08);font:700 18px Nunito;color:#16211a">‹</button>
+            <span style="font:700 15px Nunito;color:#6b756c">#PR-2026-0147</span>
+          </div>
+          <div style="padding:0 18px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h1 style="font:700 22px Fredoka;margin:0">Tủ gỗ, 2 thùng carton</h1><span style="background:#fff7e6;color:#a8791a;border-radius:999px;padding:6px 12px;font:800 12px Nunito">⏳ Chờ duyệt</span></div>
+            <div style="background:#fff;border-radius:18px;padding:18px 16px">
+              <sc-for list="{{ reqTimeline }}" as="t" hint-placeholder-count="4">
+                <div style="display:flex;gap:12px;align-items:flex-start;position:relative;padding-bottom:16px">
+                  <span style="width:24px;height:24px;border-radius:50%;background:{{ t.bg }};color:{{ t.fg }};display:flex;align-items:center;justify-content:center;font:800 12px Nunito;flex:none;z-index:2">{{ t.icon }}</span>
+                  <div style="flex:1"><div style="font:800 12px Nunito;color:#8a938a">{{ t.time }}</div><div style="font:700 14px/1.35 Nunito;color:{{ t.txt }}">{{ t.label }}</div></div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="background:#e6f4ea;border-radius:16px;padding:15px;margin-top:12px;font:700 13px/1.5 Nunito;color:#1f8a4f;display:flex;gap:9px"><span>🚛</span>Khi được duyệt, yêu cầu của bạn sẽ đi cùng chuyến với 3 hộ khác trong toà — giảm 2 chuyến xe.</div>
+            <button style="width:100%;margin-top:14px;background:#fff;border:1.5px solid #f6cdb8;border-radius:14px;padding:14px;font:700 14px Nunito;color:#c1471c;cursor:pointer">Huỷ yêu cầu</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ===== SCHEDULE ===== -->
+        <sc-if value="{{ sSchedule }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%;background:#f4f1ea;padding:54px 18px 108px">
+          <h1 style="font:700 28px Fredoka,sans-serif;margin:0 0 4px">Lịch thu gom</h1>
+          <p style="font:600 13px Nunito;color:#8a938a;margin:0 0 16px">Toà Sunrise S1 · xem được cả khi không có mạng</p>
+          <div style="background:linear-gradient(150deg,#2fae66,#1f8a4f);border-radius:20px;padding:18px;color:#fff;margin-bottom:16px">
+            <div style="font:700 12px Nunito;opacity:.85;margin-bottom:4px">SẮP TỚI</div>
+            <div style="font:700 19px Fredoka">Rác tái chế — hôm nay 18:00</div>
+            <div style="display:inline-block;margin-top:8px;background:rgba(255,255,255,.2);border-radius:999px;padding:5px 12px;font:800 13px Nunito">còn 4 giờ</div>
+          </div>
+          <div style="background:#fff;border-radius:18px;padding:14px 12px;overflow-x:auto">
+            <div style="display:grid;grid-template-columns:auto repeat(7,1fr);gap:6px;min-width:340px">
+              <span></span>
+              <sc-for list="{{ weekDays }}" as="d" hint-placeholder-count="7"><span style="font:800 11px Nunito;color:#8a938a;text-align:center">{{ d }}</span></sc-for>
+              <sc-for list="{{ scheduleRows }}" as="row" hint-placeholder-count="3">
+                <span style="font:700 12px Nunito;color:{{ row.color }};display:flex;align-items:center;gap:5px;white-space:nowrap"><span style="width:9px;height:9px;border-radius:3px;background:{{ row.color }}"></span>{{ row.name }}</span>
+                <sc-for list="{{ row.cells }}" as="c" hint-placeholder-count="7"><span style="height:26px;border-radius:7px;background:{{ c }}"></span></sc-for>
+              </sc-for>
+            </div>
+          </div>
+          <div style="font:700 13px Nunito;color:#8a938a;margin:18px 2px 8px">Điểm tập kết trong toà</div>
+          <div style="background:#fff;border-radius:16px;padding:14px 16px;font:700 14px Nunito"><div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f2ede2"><span>Tầng 3 — Phòng rác</span><span style="color:#8a938a;font-weight:600">Tái chế · Hữu cơ</span></div><div style="display:flex;justify-content:space-between;padding:6px 0"><span>Hầm B1 — Điểm thu pin</span><span style="color:#c1471c;font-weight:600">Nguy hại</span></div></div>
+        </div>
+        </sc-if>
+
+        <!-- ===== ME ===== -->
+        <sc-if value="{{ sMe }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%;background:#f4f1ea;padding:54px 18px 108px">
+          <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+            <div style="width:60px;height:60px;border-radius:20px;background:#e6f4ea;display:flex;align-items:center;justify-content:center"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2fae66" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
+            <div><div style="font:700 20px Fredoka">Nguyễn Thị Lan</div><div style="font:600 13px Nunito;color:#8a938a">Căn S1-1203 · Toà Sunrise S1</div></div>
+          </div>
+          <div style="background:#fff;border-radius:16px;overflow:hidden;margin-bottom:14px">
+            <div onClick="{{ toPrivacy }}" style="display:flex;align-items:center;gap:12px;padding:15px 16px;border-bottom:1px solid #f2ede2;cursor:pointer"><span style="font-size:18px">🔒</span><span style="flex:1;font:700 14px Nunito">Ảnh của tôi được xử lý thế nào</span><span style="color:#c3cbc2;font:700 16px">›</span></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:15px 16px;border-bottom:1px solid #f2ede2;cursor:pointer"><span style="font-size:18px">📜</span><span style="flex:1;font:700 14px Nunito">Lịch sử câu hỏi</span><span style="color:#c3cbc2;font:700 16px">›</span></div>
+            <div style="display:flex;align-items:center;gap:12px;padding:15px 16px;cursor:pointer"><span style="font-size:18px">🔔</span><span style="flex:1;font:700 14px Nunito">Nhắc lịch thu gom</span><span style="color:#c3cbc2;font:700 16px">›</span></div>
+          </div>
+          <div style="background:#eef1ec;border-radius:16px;padding:14px 16px;margin-bottom:14px">
+            <div style="font:700 12px Nunito;color:#8a938a;margin-bottom:8px">QUYỀN CỦA CƯ DÂN</div>
+            <div style="font:600 13px/1.6 Nunito;color:#5a6b5f">✓ Hỏi phân loại · đăng ký thu gom<br>✓ Xem yêu cầu của chính mình<br><span style="color:#b0b8ae">✕ Duyệt yêu cầu · xem ảnh cư dân khác</span></div>
+          </div>
+          <button onClick="{{ restart }}" style="width:100%;background:#fff;border:1.5px solid #e0ded4;border-radius:14px;padding:14px;font:700 14px Nunito;color:#c1471c;cursor:pointer">Đăng xuất</button>
+        </div>
+        </sc-if>
+
+        <!-- ===== CLEANER: ROUTE TODAY ===== -->
+        <sc-if value="{{ sCRoute }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%;background:#eef2f6;padding:52px 16px 108px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div style="font:700 21px Fredoka">Tuyến hôm nay</div>
+            <span style="background:#e2eefb;color:#2f7fe0;border-radius:999px;padding:6px 12px;font:800 12px Nunito">🔄 3 chờ đồng bộ</span>
+          </div>
+          <div style="background:#16211a;border-radius:20px;padding:18px;color:#fff;margin-bottom:16px">
+            <div style="font:700 16px Fredoka;margin-bottom:2px">Chuyến sáng · Thứ 5, 30/07</div>
+            <div style="font:600 13px Nunito;color:#9fb3a6;margin-bottom:12px">08:00–10:00 · 5 điểm · 142 kg · ~4,2 km</div>
+            <div style="height:8px;border-radius:4px;background:rgba(255,255,255,.15);overflow:hidden"><div style="width:40%;height:100%;background:#2fae66;border-radius:4px"></div></div>
+            <div style="font:800 12px Nunito;color:#7fd7a4;margin-top:8px">2/5 điểm đã thu</div>
+          </div>
+          <sc-for list="{{ routeStops }}" as="st" hint-placeholder-count="3">
+            <div style="background:#fff;border-radius:18px;padding:16px;margin-bottom:12px;border:1px solid {{ st.border }};opacity:{{ st.opacity }}">
+              <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px">
+                <span style="width:34px;height:34px;border-radius:11px;background:{{ st.numBg }};color:{{ st.numFg }};display:flex;align-items:center;justify-content:center;font:800 15px Nunito;flex:none">{{ st.seq }}</span>
+                <div style="flex:1"><div style="display:flex;justify-content:space-between"><span style="font:800 16px Nunito">{{ st.unit }}</span><span style="font:800 16px Fredoka;color:#2f7fe0">{{ st.weight }}</span></div><div style="font:600 13px Nunito;color:#8a938a">{{ st.name }} · {{ st.phone }}</div><div style="font:700 13px Nunito;color:#6a4dc4;margin-top:4px">📦 {{ st.items }}</div></div>
+              </div>
+              <sc-if value="{{ st.pending }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;gap:10px">
+                <button style="flex:1;background:#2fae66;color:#fff;border:none;border-radius:13px;padding:15px;font:800 15px Nunito;cursor:pointer;min-height:48px">✓ Đã thu</button>
+                <button style="flex:1;background:#fff;border:1.5px solid #f2d999;color:#a8791a;border-radius:13px;padding:15px;font:800 15px Nunito;cursor:pointer;min-height:48px">⚠ Báo lỗi</button>
+              </div>
+              </sc-if>
+              <sc-if value="{{ st.done }}" hint-placeholder-val="{{ false }}">
+              <div style="background:#e6f4ea;border-radius:13px;padding:13px;font:800 14px Nunito;color:#1f8a4f;text-align:center">✓ Đã thu lúc {{ st.doneAt }}</div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <button style="width:100%;background:#fff;border:1.5px solid #d9e0ec;border-radius:14px;padding:14px;font:700 14px Nunito;color:#2f7fe0;cursor:pointer">📍 Mở bản đồ toàn tuyến</button>
+        </div>
+        </sc-if>
+
+        <!-- ===== CLEANER: VERIFY LABELS ===== -->
+        <sc-if value="{{ sCVerify }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%;background:#eef2f6;padding:52px 16px 108px">
+          <div style="font:700 21px Fredoka;margin-bottom:4px">Xác nhận nhãn</div>
+          <p style="font:600 13px Nunito;color:#8a938a;margin:0 0 14px">Các ca hệ thống chưa chắc hoặc cư dân báo sai.</p>
+          <div style="background:#fff7e6;border:1.5px solid #f2d999;border-radius:16px;padding:14px;margin-bottom:16px">
+            <div style="font:800 12px Nunito;color:#a8791a;margin-bottom:8px">⚑ CA KHÓ HAY BỊ NHẦM</div>
+            <div style="font:700 12px/1.7 Nunito;color:#7a5c14">Hộp sữa giấy tráng nhôm ↔ Giấy<br>Ly nhựa có màng ↔ Nhựa tái chế<br>Khay cơm dính dầu ↔ Rác thực phẩm</div>
+          </div>
+          <div style="background:#fff;border-radius:18px;padding:16px;margin-bottom:12px">
+            <div style="display:flex;gap:12px;margin-bottom:12px">
+              <div style="width:70px;height:70px;border-radius:12px;background:repeating-linear-gradient(135deg,#e6edf5,#e6edf5 7px,#dce5ef 7px,#dce5ef 14px);flex:none"></div>
+              <div style="flex:1"><div style="font:800 14px Nunito;margin-bottom:4px">AI đoán: chai hoá chất tẩy rửa</div><div style="display:flex;gap:6px;flex-wrap:wrap"><span style="background:#eef1ec;color:#6b756c;border-radius:8px;padding:3px 9px;font:800 11px Nunito">0,52</span><span style="background:#fdeee6;color:#c1471c;border-radius:8px;padding:3px 9px;font:800 11px Nunito">Dưới ngưỡng 0,80 nhóm nguy hại</span></div><div style="font:700 11px Nunito;color:#8a938a;margin-top:6px">Lý do: ảnh tối · nghi nguy hại</div></div>
+            </div>
+            <button style="width:100%;background:#16211a;color:#fff;border:none;border-radius:13px;padding:14px;font:800 14px Nunito;cursor:pointer;min-height:48px">Chọn nhãn đúng & trả lời</button>
+            <button style="width:100%;margin-top:8px;background:#fff;border:1.5px solid #e0ded4;border-radius:13px;padding:13px;font:700 13px Nunito;color:#6b756c;cursor:pointer">Không xác định được — yêu cầu chụp lại</button>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ===== CLEANER: HISTORY / ME (simple) ===== -->
+        <sc-if value="{{ sCOther }}" hint-placeholder-val="{{ false }}">
+        <div style="min-height:100%;background:#eef2f6;padding:52px 16px 108px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
+          <div style="width:64px;height:64px;border-radius:20px;background:#e2eefb;display:flex;align-items:center;justify-content:center;margin-bottom:14px"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2f7fe0" stroke-width="2" stroke-linecap="round"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg></div>
+          <div style="font:700 19px Fredoka;margin-bottom:6px">Lê Văn Hùng</div>
+          <div style="font:600 13px Nunito;color:#8a938a">Tổ vệ sinh ca sáng · Sunrise Residence</div>
+          <button onClick="{{ restart }}" style="margin-top:20px;background:#fff;border:1.5px solid #e0ded4;border-radius:14px;padding:13px 24px;font:700 14px Nunito;color:#c1471c;cursor:pointer">Đăng xuất</button>
+        </div>
+        </sc-if>
+
+        <!-- more-mobile-screens -->
+
+      </div>
+
+      <!-- ===== RESIDENT TAB BAR ===== -->
+      <sc-if value="{{ showResidentTabs }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;bottom:0;left:0;right:0;height:86px;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-top:1px solid rgba(20,40,25,.06);display:flex;align-items:flex-start;padding:12px 12px 0;z-index:30">
+        <button onClick="{{ tabAsk }}" style="flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;color:{{ tAsk }}">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h1l1.2-2h5.6L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" transform="translate(1 0)"/><circle cx="12" cy="13" r="3.2"/></svg>
+          <span style="font:700 11px Nunito,sans-serif">Hỏi</span>
+        </button>
+        <button onClick="{{ tabSchedule }}" style="flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;color:{{ tSchedule }}">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+          <span style="font:700 11px Nunito,sans-serif">Lịch</span>
+        </button>
+        <button onClick="{{ tabRequests }}" style="flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;color:{{ tRequests }};position:relative">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v16l-7-3-7 3z"/></svg>
+          <span style="position:absolute;top:-3px;right:24px;background:#e05a2b;color:#fff;font:800 10px Nunito;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px">1</span>
+          <span style="font:700 11px Nunito,sans-serif">Yêu cầu</span>
+        </button>
+        <button onClick="{{ tabMe }}" style="flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;color:{{ tMe }}">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+          <span style="font:700 11px Nunito,sans-serif">Tôi</span>
+        </button>
+      </div>
+      </sc-if>
+
+      <sc-if value="{{ showCleanerTabs }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;bottom:0;left:0;right:0;height:86px;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);border-top:1px solid rgba(20,40,25,.06);display:flex;align-items:flex-start;padding:12px 8px 0;z-index:30">
+        <button onClick="{{ ctRoute }}" style="flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;color:{{ ctR }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h13l3 4h2v3h-2M3 7h9v9H3z"/><circle cx="7" cy="19" r="1.6"/><circle cx="17" cy="19" r="1.6"/></svg><span style="font:700 10px Nunito">Tuyến</span></button>
+        <button onClick="{{ ctVerify }}" style="flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;color:{{ ctV }};position:relative"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg><span style="position:absolute;top:-3px;right:20px;background:#e05a2b;color:#fff;font:800 10px Nunito;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px">7</span><span style="font:700 10px Nunito">Xác nhận</span></button>
+        <button onClick="{{ ctHistory }}" style="flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;color:{{ ctH }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg><span style="font:700 10px Nunito">Lịch sử</span></button>
+        <button onClick="{{ ctMe }}" style="flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;color:{{ ctM }}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg><span style="font:700 10px Nunito">Tôi</span></button>
+      </div>
+      </sc-if>
+      <!-- cleaner-tabs -->
+
+      <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:130px;height:5px;border-radius:3px;background:{{ homeBarColor }};z-index:50"></div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===== MANAGER DESKTOP ===== -->
+  <sc-if value="{{ isManager }}" hint-placeholder-val="{{ false }}">
+  <div style="width:100%;max-width:1220px;background:#0c0f0c;border-radius:16px;padding:12px;box-shadow:0 30px 70px -25px rgba(15,30,18,.5)">
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px 12px">
+      <span style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></span><span style="width:12px;height:12px;border-radius:50%;background:#febc2e"></span><span style="width:12px;height:12px;border-radius:50%;background:#28c840"></span>
+      <span style="margin-left:12px;font:600 12px Nunito,sans-serif;color:#8a938a">console.greenbin.vn</span>
+    </div>
+    <div style="background:#f5f5f2;border-radius:8px;overflow:hidden;height:720px;display:flex;flex-direction:column;font-family:Nunito,sans-serif">
+      <div style="height:56px;background:#fff;border-bottom:1px solid #eceae3;display:flex;align-items:center;padding:0 20px;gap:14px;flex:none">
+        <span style="font:700 16px Fredoka;letter-spacing:-.01em">GreenBin<span style="color:#2fae66"> AI</span></span>
+        <span style="display:flex;align-items:center;gap:7px;background:#f5f5f2;border:1px solid #eceae3;border-radius:9px;padding:7px 12px;font:700 13px Nunito;cursor:pointer">Toà: Sunrise S1 <span style="color:#8a938a">▾</span></span>
+        <span style="display:flex;align-items:center;gap:7px;background:#f5f5f2;border:1px solid #eceae3;border-radius:9px;padding:7px 12px;font:700 13px Nunito;cursor:pointer">Kỳ: T7/2026 <span style="color:#8a938a">▾</span></span>
+        <span style="flex:1"></span>
+        <span style="position:relative;width:36px;height:36px;border-radius:10px;background:#f5f5f2;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3a453d" stroke-width="2" stroke-linecap="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6M10 20a2 2 0 0 0 4 0"/></svg><span style="position:absolute;top:-4px;right:-4px;background:#e05a2b;color:#fff;font:800 10px Nunito;width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center">3</span></span>
+        <span style="display:flex;align-items:center;gap:9px;padding-left:6px"><span style="width:32px;height:32px;border-radius:50%;background:#ece7f6;display:flex;align-items:center;justify-content:center;font:800 13px Nunito;color:#7c5cdf">TĐ</span><span><span style="display:block;font:700 13px Nunito;line-height:1.1">Trần Minh Đức</span><span style="font:600 11px Nunito;color:#8a938a">Ban quản lý</span></span></span>
+      </div>
+      <div style="flex:1;display:flex;overflow:hidden">
+        <div style="width:230px;background:#fbfbf9;border-right:1px solid #eceae3;padding:16px 12px;overflow-y:auto;flex:none">
+          <button onClick="{{ navOverview }}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:{{ nOverviewBg }};border:none;border-radius:10px;padding:10px 12px;font:700 13px Nunito;color:{{ nOverviewFg }};cursor:pointer;margin-bottom:2px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>Tổng quan</button>
+          <div style="font:800 10px Nunito;color:#a0a89f;letter-spacing:.08em;padding:14px 12px 6px">CẦN DUYỆT</div>
+          <button onClick="{{ navPickup }}" style="display:flex;align-items:center;width:100%;text-align:left;background:{{ nPickupBg }};border:none;border-radius:10px;padding:10px 12px;font:700 13px Nunito;color:{{ nPickupFg }};cursor:pointer;margin-bottom:2px">Thu gom<span style="flex:1"></span><span style="background:#e05a2b;color:#fff;border-radius:7px;padding:1px 8px;font:800 11px Nunito">4</span></button>
+          <button onClick="{{ navVerify }}" style="display:flex;align-items:center;width:100%;text-align:left;background:{{ nVerifyBg }};border:none;border-radius:10px;padding:10px 12px;font:700 13px Nunito;color:{{ nVerifyFg }};cursor:pointer;margin-bottom:2px">Nhãn nghi ngờ<span style="flex:1"></span><span style="background:#e0a021;color:#fff;border-radius:7px;padding:1px 8px;font:800 11px Nunito">7</span></button>
+          <button onClick="{{ navRoute }}" style="display:flex;align-items:center;width:100%;text-align:left;background:{{ nRouteBg }};border:none;border-radius:10px;padding:10px 12px;font:700 13px Nunito;color:{{ nRouteFg }};cursor:pointer;margin-bottom:2px">Tuyến gộp<span style="flex:1"></span><span style="background:#2f7fe0;color:#fff;border-radius:7px;padding:1px 8px;font:800 11px Nunito">2</span></button>
+          <div style="height:1px;background:#eceae3;margin:12px 8px"></div>
+          <div style="font:700 13px Nunito;color:#8a938a;padding:9px 12px">Phân loại</div>
+          <div style="font:700 13px Nunito;color:#8a938a;padding:9px 12px">Thu gom & tuyến</div>
+          <div style="height:1px;background:#eceae3;margin:12px 8px"></div>
+          <div style="font:700 13px Nunito;color:#8a938a;padding:9px 12px">Agent run</div>
+          <button onClick="{{ navOps }}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:{{ nOpsBg }};border:none;border-radius:10px;padding:10px 12px;font:700 13px Nunito;color:{{ nOpsFg }};cursor:pointer;margin-bottom:2px">Vận hành</button>
+          <div style="font:700 13px Nunito;color:#8a938a;padding:9px 12px">Chất lượng AI</div>
+          <div style="font:700 13px Nunito;color:#8a938a;padding:9px 12px">Danh mục & QĐ</div>
+        </div>
+
+        <div class="gb-scroll" style="flex:1;overflow-y:auto;padding:26px 30px">
+          <!-- ===== MGR: OVERVIEW ===== -->
+          <sc-if value="{{ mOverview }}" hint-placeholder-val="{{ true }}">
+            <div style="font:700 24px Fredoka;margin-bottom:2px">Chào buổi sáng, anh Đức 👋</div>
+            <div style="font:600 14px Nunito;color:#8a938a;margin-bottom:18px">Hôm nay có gì cần anh xử lý?</div>
+            <div style="display:flex;gap:11px;align-items:center;background:#fdeee6;border:1px solid #f6cdb8;border-radius:14px;padding:14px 16px;margin-bottom:18px">
+              <span style="width:34px;height:34px;border-radius:10px;background:#e05a2b;display:flex;align-items:center;justify-content:center;flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 3L2 20h20z" stroke-linejoin="round"/><path d="M12 10v4M12 17v.5"/></svg></span>
+              <span style="flex:1;font:700 14px Nunito;color:#8a3418">Đội vệ sinh báo có rác nguy hại lẫn trong yêu cầu #PR-0147 tại S1-1203</span>
+              <button onClick="{{ navPickup }}" style="background:#e05a2b;color:#fff;border:none;border-radius:9px;padding:8px 15px;font:700 13px Nunito;cursor:pointer">Xem</button>
+              <button style="background:#fff;border:1px solid #f0c4ac;color:#a04b26;border-radius:9px;padding:8px 15px;font:700 13px Nunito;cursor:pointer">Đã xử lý</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px">
+              <div onClick="{{ navPickup }}" style="background:#fff;border:1px solid #eceae3;border-radius:16px;padding:16px;cursor:pointer"><div style="font:700 12px Nunito;color:#8a938a;margin-bottom:6px">Cần duyệt</div><div style="font:700 32px Fredoka;line-height:1">13</div><div style="font:600 11px Nunito;color:#8a938a;margin-top:6px">4 thu gom · 7 nhãn · 2 tuyến</div><div style="color:#2fae66;font:800 12px Nunito;margin-top:8px">Duyệt ngay →</div></div>
+              <div style="background:#fff;border:1px solid #eceae3;border-radius:16px;padding:16px"><div style="font:700 12px Nunito;color:#8a938a;margin-bottom:6px">Lượt phân loại tuần này</div><div style="font:700 32px Fredoka;line-height:1">1.284</div><div style="font:800 11px Nunito;color:#1f8a4f;margin-top:6px">▲ +18% so với tuần trước</div></div>
+              <div style="background:#fff;border:1px solid #eceae3;border-radius:16px;padding:16px"><div style="font:700 12px Nunito;color:#8a938a;margin-bottom:6px">Độ chính xác (có người xác nhận)</div><div style="font:700 32px Fredoka;line-height:1">91,4%</div><div style="font:600 11px Nunito;color:#8a938a;margin-top:6px">trên 213 ca đã xác nhận</div></div>
+              <div style="background:#e6f4ea;border:1px solid #bfe6cc;border-radius:16px;padding:16px"><div style="font:700 12px Nunito;color:#1f8a4f;margin-bottom:6px">⚠ Rác nguy hại bị bỏ sót</div><div style="font:700 32px Fredoka;line-height:1;color:#1f8a4f">0</div><div style="font:600 11px Nunito;color:#3a7a52;margin-top:6px">mục tiêu 0 · trên 213 ca</div></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:14px">
+              <div style="background:#fff;border:1px solid #eceae3;border-radius:16px;padding:18px">
+                <div style="font:700 14px Nunito;margin-bottom:14px">Phân bố nhóm rác trong tuần</div>
+                <div style="display:flex;height:18px;border-radius:9px;overflow:hidden;margin-bottom:14px"><span style="width:42%;background:#2f7fe0"></span><span style="width:31%;background:#3aa657"></span><span style="width:15%;background:#8b8f8a"></span><span style="width:8%;background:#e05a2b"></span><span style="width:4%;background:#7c5cdf"></span></div>
+                <div style="display:flex;flex-wrap:wrap;gap:12px;font:700 12px Nunito;color:#3a453d"><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#2f7fe0"></span>Tái chế 42%</span><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#3aa657"></span>Hữu cơ 31%</span><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#8b8f8a"></span>Khác 15%</span><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#e05a2b"></span>Nguy hại 8%</span><span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:3px;background:#7c5cdf"></span>Cồng kềnh 4%</span></div>
+              </div>
+              <div style="background:linear-gradient(150deg,#2fae66,#1f8a4f);border-radius:16px;padding:18px;color:#fff">
+                <div style="font:700 14px Nunito;margin-bottom:12px">Hiệu quả điều phối tuần</div>
+                <div style="font:700 30px Fredoka;line-height:1.1">12 yêu cầu<br>→ 4 chuyến</div>
+                <div style="margin-top:14px;font:700 13px Nunito;background:rgba(255,255,255,.18);border-radius:10px;padding:10px 12px">Giảm 8 chuyến xe · tiết kiệm ~46 km</div>
+              </div>
+            </div>
+          </sc-if>
+          <!-- ===== MGR: APPROVE PICKUP (HITL 1) ===== -->
+          <sc-if value="{{ mPickup }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px"><div style="font:700 22px Fredoka">Duyệt yêu cầu thu gom</div><span style="background:#f5f5f2;border:1px solid #eceae3;border-radius:8px;padding:5px 10px;font:700 12px Nunito;color:#8a938a">Phím tắt: J/K · A duyệt · R từ chối</span></div>
+            <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start">
+              <div>
+                <div style="display:flex;gap:6px;margin-bottom:10px"><span style="background:#16211a;color:#fff;border-radius:8px;padding:6px 12px;font:700 12px Nunito">Chờ duyệt (4)</span><span style="background:#fff;border:1px solid #eceae3;border-radius:8px;padding:6px 12px;font:700 12px Nunito;color:#8a938a">Đã duyệt</span></div>
+                <div style="background:#fff;border:2px solid #2fae66;border-radius:14px;padding:14px;margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font:800 13px Nunito;color:#7c5cdf">#PR-0147</span><span style="background:#fff7e6;color:#a8791a;border-radius:6px;padding:2px 8px;font:800 11px Nunito">48 kg</span></div><div style="font:700 13px Nunito">S1-1203 · Nguyễn Thị Lan</div><div style="font:600 11px Nunito;color:#e0a021;margin-top:4px">⏳ đã chờ 3 giờ · mong muốn 30/07</div></div>
+                <div style="background:#fff;border:1px solid #eceae3;border-radius:14px;padding:14px;margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font:800 13px Nunito;color:#7c5cdf">#PR-0151</span><span style="background:#f5f5f2;color:#6b756c;border-radius:6px;padding:2px 8px;font:800 11px Nunito">34 kg</span></div><div style="font:700 13px Nunito">S2-0904 · Đỗ Văn K.</div><div style="font:600 11px Nunito;color:#8a938a;margin-top:4px">đã chờ 1 giờ · mong muốn 31/07</div></div>
+                <div style="background:#fff;border:1px solid #eceae3;border-radius:14px;padding:14px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font:800 13px Nunito;color:#7c5cdf">#PR-0153</span><span style="background:#f5f5f2;color:#6b756c;border-radius:6px;padding:2px 8px;font:800 11px Nunito">41 kg</span></div><div style="font:700 13px Nunito">S1-0705 · Vũ Thị M.</div><div style="font:600 11px Nunito;color:#8a938a;margin-top:4px">đã chờ 40 phút</div></div>
+              </div>
+              <div style="background:#fff;border:1px solid #eceae3;border-radius:16px;overflow:hidden">
+                <div style="padding:18px 20px;border-bottom:1px solid #f2ede2"><div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><span style="background:#fff7e6;color:#a8791a;border-radius:7px;padding:4px 10px;font:800 12px Nunito">CHỜ DUYỆT</span><span style="font:800 15px Nunito;color:#7c5cdf">#PR-2026-0147</span></div><div style="font:600 13px Nunito;color:#8a938a">Nguyễn Thị Lan · Căn S1-1203 · gửi 28/07 14:20</div></div>
+                <div style="padding:16px 20px">
+                  <div style="background:#f5f5f2;border-radius:12px;padding:14px;margin-bottom:14px">
+                    <div style="font:700 13px Nunito;margin-bottom:10px">Vì sao yêu cầu này cần duyệt</div>
+                    <div style="display:flex;justify-content:space-between;font:700 13px Nunito;padding:4px 0"><span style="color:#6b756c">Khối lượng ước tính</span><span>48 kg <span style="color:#8a938a;font-weight:600">(ngưỡng 30 kg)</span> <span style="color:#c1471c">⚠ vượt</span></span></div>
+                    <div style="display:flex;justify-content:space-between;font:700 13px Nunito;padding:4px 0"><span style="color:#6b756c">Số món</span><span>5 <span style="color:#8a938a;font-weight:600">(ngưỡng 3)</span> <span style="color:#c1471c">⚠ vượt</span></span></div>
+                    <div style="display:flex;justify-content:space-between;font:700 13px Nunito;padding:4px 0"><span style="color:#6b756c">Có món nghi nguy hại</span><span style="color:#1f8a4f">Không</span></div>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px">
+                    <div><div style="aspect-ratio:1;border-radius:10px;background:repeating-linear-gradient(135deg,#ece7f6,#ece7f6 6px,#e3daf3 6px,#e3daf3 12px);margin-bottom:4px"></div><div style="font:700 10px Nunito">Tủ gỗ · 30kg</div></div>
+                    <div><div style="aspect-ratio:1;border-radius:10px;background:repeating-linear-gradient(135deg,#e2eefb,#e2eefb 6px,#d5e5f8 6px,#d5e5f8 12px);margin-bottom:4px"></div><div style="font:700 10px Nunito">Carton · 18kg</div></div>
+                  </div>
+                  <div style="background:#f7f9f7;border:1px solid #e6ece6;border-radius:12px;padding:12px 14px;margin-bottom:14px;font:600 12px/1.7 Nunito;color:#3a453d">Cư dân này: 4 yêu cầu trước, 4 lần đúng hẹn, 0 lần huỷ<br>Toà S1 tuần này: 12 yêu cầu, tổng 310 kg<br>Ngày 30/07: đã có 1 chuyến, còn trống ~85 kg</div>
+                  <div style="border:1.5px dashed #cbb8ee;border-radius:12px;padding:14px;background:#faf8fe"><div style="font:800 11px Nunito;color:#7c5cdf;margin-bottom:6px">✦ AI ĐỀ XUẤT</div><div style="font:600 13px/1.5 Nunito;color:#3a453d">Gộp vào chuyến sáng thứ 5 (08:00–10:00) cùng 3 yêu cầu khác của toà S1. Ước tính tiết kiệm 1 chuyến xe, ~6 km.</div></div>
+                </div>
+                <div style="display:flex;gap:10px;padding:14px 20px;border-top:1px solid #f2ede2;background:#fbfbf9">
+                  <button style="background:#2fae66;color:#fff;border:none;border-radius:11px;padding:12px 20px;font:800 14px Nunito;cursor:pointer">✓ Duyệt</button>
+                  <button style="background:#fff;border:1.5px solid #e0ded4;border-radius:11px;padding:12px 18px;font:700 14px Nunito;color:#3a453d;cursor:pointer">Duyệt kèm điều chỉnh</button>
+                  <span style="flex:1"></span>
+                  <button style="background:#fff;border:1.5px solid #f6cdb8;color:#c1471c;border-radius:11px;padding:12px 18px;font:700 14px Nunito;cursor:pointer">✕ Từ chối</button>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- ===== MGR: VERIFY LABELS (HITL 2) ===== -->
+          <sc-if value="{{ mVerify }}" hint-placeholder-val="{{ false }}">
+            <div style="font:700 22px Fredoka;margin-bottom:4px">Xác nhận nhãn nghi ngờ</div>
+            <div style="font:600 14px Nunito;color:#8a938a;margin-bottom:16px">7 ca hệ thống chưa chắc hoặc cư dân báo sai</div>
+            <div style="background:#fff7e6;border:1px solid #f2d999;border-radius:14px;padding:14px 16px;margin-bottom:16px"><div style="font:800 11px Nunito;color:#a8791a;margin-bottom:8px">⚑ CA KHÓ HAY BỊ NHẦM (từ eval)</div><div style="display:flex;gap:8px;flex-wrap:wrap;font:700 12px Nunito;color:#7a5c14"><span style="background:#fff;border-radius:8px;padding:6px 11px">Hộp sữa giấy tráng nhôm ↔ Giấy</span><span style="background:#fff;border-radius:8px;padding:6px 11px">Ly nhựa có màng ↔ Nhựa tái chế</span><span style="background:#fff;border-radius:8px;padding:6px 11px">Khay cơm dính dầu ↔ Rác thực phẩm</span></div></div>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
+              <div style="background:#fff;border:1px solid #eceae3;border-radius:14px;padding:16px;display:flex;gap:14px">
+                <div style="width:90px;height:90px;border-radius:12px;background:repeating-linear-gradient(135deg,#e6edf5,#e6edf5 7px,#dce5ef 7px,#dce5ef 14px);flex:none"></div>
+                <div style="flex:1"><div style="font:800 14px Nunito;margin-bottom:5px">AI đoán: chai hoá chất · 0,52</div><span style="background:#fdeee6;color:#c1471c;border-radius:7px;padding:3px 9px;font:800 11px Nunito">Dưới ngưỡng 0,80 nhóm nguy hại</span><div style="font:600 11px Nunito;color:#8a938a;margin:8px 0">Lý do từ chối: ảnh tối · nghi nguy hại</div><button style="background:#16211a;color:#fff;border:none;border-radius:10px;padding:9px 14px;font:700 12px Nunito;cursor:pointer">Chọn nhãn đúng & trả lời</button></div>
+              </div>
+              <div style="background:#fff;border:1px solid #eceae3;border-radius:14px;padding:16px;display:flex;gap:14px">
+                <div style="width:90px;height:90px;border-radius:12px;background:repeating-linear-gradient(135deg,#e2eefb,#e2eefb 7px,#d5e5f8 7px,#d5e5f8 14px);flex:none"></div>
+                <div style="flex:1"><div style="font:800 14px Nunito;margin-bottom:5px">Cư dân báo sai: Ly trà sữa</div><span style="background:#eef1ec;color:#6b756c;border-radius:7px;padding:3px 9px;font:800 11px Nunito">👎 phản hồi cư dân</span><div style="font:600 11px Nunito;color:#8a938a;margin:8px 0">AI đoán Nhựa tái chế · người dùng nói có màng</div><button style="background:#16211a;color:#fff;border:none;border-radius:10px;padding:9px 14px;font:700 12px Nunito;cursor:pointer">Chọn nhãn đúng & trả lời</button></div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- ===== MGR: APPROVE ROUTE (HITL 3 — star) ===== -->
+          <sc-if value="{{ mRoute }}" hint-placeholder-val="{{ false }}">
+            <div style="font:700 22px Fredoka;margin-bottom:14px">Duyệt tuyến gộp</div>
+            <div style="background:linear-gradient(150deg,#16211a,#1c3326);border-radius:16px;padding:18px 20px;color:#fff;margin-bottom:16px;display:flex;align-items:center;gap:16px">
+              <span style="background:#f2d999;color:#5a4410;border-radius:8px;padding:5px 11px;font:800 11px Nunito">AI ĐỀ XUẤT — CHỜ DUYỆT</span>
+              <div style="flex:1"><div style="font:700 17px Fredoka">Chuyến sáng · Thứ 5, 30/07 · 08:00–10:00</div><div style="font:600 12px Nunito;color:#9fb3a6">5 điểm dừng · 142 kg · ~4,2 km · ~2 giờ · Tổ ca sáng (Lê Văn Hùng)</div></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+              <div style="background:#fff;border:1px solid #eceae3;border-radius:16px;padding:16px">
+                <div style="font:700 13px Nunito;color:#8a938a;margin-bottom:10px">Điểm dừng — kéo thả đổi thứ tự</div>
+                <sc-for list="{{ mgrStops }}" as="s" hint-placeholder-count="5">
+                  <div style="display:flex;align-items:center;gap:12px;background:#fbfbf9;border:1px solid #eee7db;border-radius:12px;padding:11px 13px;margin-bottom:8px"><span style="color:#c3cbc2;font:800 15px Nunito;cursor:grab">⠿</span><span style="width:26px;height:26px;border-radius:8px;background:#16211a;color:#fff;display:flex;align-items:center;justify-content:center;font:800 12px Nunito">{{ s.n }}</span><div style="flex:1"><div style="font:800 13px Nunito">{{ s.unit }}</div><div style="font:600 11px Nunito;color:#8a938a">{{ s.items }}</div></div><span style="font:800 13px Nunito;color:#2f7fe0">{{ s.kg }}</span></div>
+                </sc-for>
+              </div>
+              <div>
+                <div style="border:1.5px dashed #cbb8ee;background:#faf8fe;border-radius:16px;padding:16px;margin-bottom:14px">
+                  <div style="font:800 11px Nunito;color:#7c5cdf;margin-bottom:10px">✦ AI GIẢI THÍCH — VÌ SAO GỘP THẾ NÀY</div>
+                  <div style="font:600 12px/1.7 Nunito;color:#3a453d">Tiêu chí gộp:<br>• Cùng toà S1 & S2 (cách nhau 300 m)<br>• Cùng khung giờ mong muốn 08:00–10:00<br>• Tổng 142 kg — trong tải trọng 200 kg của xe<br>• 2 yêu cầu toà S3 KHÔNG gộp vì lệch khung giờ (14:00–16:00) → xếp chuyến chiều</div>
+                  <div style="background:#e6f4ea;border-radius:10px;padding:11px 13px;margin-top:12px;font:700 13px Nunito;color:#1f8a4f">So với đi lẻ: 5 chuyến → 1 chuyến · ~18 km → ~4,2 km <b>(giảm 77%)</b></div>
+                </div>
+                <div style="background:#fff;border:1px solid #eceae3;border-radius:16px;padding:16px">
+                  <div style="font:700 12px Nunito;color:#8a938a;margin-bottom:10px">Sơ đồ tuyến</div>
+                  <svg viewBox="0 0 260 90" style="width:100%"><path d="M20 70 L80 30 L140 55 L200 25 L240 60" fill="none" stroke="#2fae66" stroke-width="2.5" stroke-dasharray="4 4"/><g font-family="Nunito" font-weight="800" font-size="10"><circle cx="20" cy="70" r="11" fill="#16211a"/><text x="20" y="74" fill="#fff" text-anchor="middle">1</text><circle cx="80" cy="30" r="11" fill="#16211a"/><text x="80" y="34" fill="#fff" text-anchor="middle">2</text><circle cx="140" cy="55" r="11" fill="#16211a"/><text x="140" y="59" fill="#fff" text-anchor="middle">3</text><circle cx="200" cy="25" r="11" fill="#16211a"/><text x="200" y="29" fill="#fff" text-anchor="middle">4</text><circle cx="240" cy="60" r="11" fill="#16211a"/><text x="240" y="64" fill="#fff" text-anchor="middle">5</text></g></svg>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:16px">
+              <button style="background:#2fae66;color:#fff;border:none;border-radius:11px;padding:13px 22px;font:800 14px Nunito;cursor:pointer">✓ Duyệt tuyến</button>
+              <button style="background:#fff;border:1.5px solid #e0ded4;border-radius:11px;padding:13px 18px;font:700 14px Nunito;color:#3a453d;cursor:pointer">✏️ Sửa rồi duyệt</button>
+              <button style="background:#fff;border:1.5px solid #e0ded4;border-radius:11px;padding:13px 18px;font:700 14px Nunito;color:#3a453d;cursor:pointer">🔄 Đề xuất lại</button>
+              <span style="flex:1"></span>
+              <button style="background:#fff;border:1.5px solid #f6cdb8;color:#c1471c;border-radius:11px;padding:13px 18px;font:700 14px Nunito;cursor:pointer">Huỷ tuyến</button>
+            </div>
+          </sc-if>
+
+          <!-- ===== MGR: OPS & COST ===== -->
+          <sc-if value="{{ mOps }}" hint-placeholder-val="{{ false }}">
+            <div style="font:700 22px Fredoka;margin-bottom:16px">Vận hành & chi phí</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+              <div style="background:#fff;border:1px solid #eceae3;border-radius:16px;padding:18px"><div style="font:700 13px Nunito;color:#8a938a;margin-bottom:4px">Chi phí tháng này</div><div style="font:700 34px Fredoka;line-height:1">$3,42</div><div style="font:600 12px Nunito;color:#8a938a;margin-top:4px">4.180 lượt · $0,82 / 1.000 lượt</div><div style="height:8px;border-radius:4px;background:#f0eee7;margin-top:12px;overflow:hidden"><div style="width:14%;height:100%;background:#2fae66;border-radius:4px"></div></div><div style="font:700 11px Nunito;color:#8a938a;margin-top:6px">$3,42 / $25,00 ngân sách</div></div>
+              <div style="background:linear-gradient(150deg,#2fae66,#1f8a4f);border-radius:16px;padding:18px;color:#fff"><div style="font:700 13px Nunito;opacity:.9;margin-bottom:8px">Định tuyến 3 tầng vs gpt-4o toàn bộ</div><div style="display:flex;align-items:baseline;gap:12px"><span style="font:700 30px Fredoka">$3,42</span><span style="font:600 15px Nunito;opacity:.8;text-decoration:line-through">$50,58</span></div><div style="display:inline-block;margin-top:12px;background:rgba(255,255,255,.2);border-radius:999px;padding:6px 14px;font:800 14px Nunito">Tiết kiệm 93%</div></div>
+            </div>
+            <div style="background:#fff;border:1px solid #eceae3;border-radius:16px;padding:18px;margin-bottom:16px">
+              <div style="font:700 14px Nunito;margin-bottom:12px">So sánh 3 tầng model</div>
+              <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;font:800 11px Nunito;color:#8a938a;padding-bottom:8px;border-bottom:1px solid #f2ede2"><span>Tầng</span><span>Tỉ lệ</span><span>Chính xác</span><span>Chi phí/ảnh</span><span>Độ trễ p95</span></div>
+              <sc-for list="{{ tierRows }}" as="t" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:8px;font:700 12px Nunito;padding:9px 0;border-bottom:1px solid #f7f4ec"><span style="display:flex;align-items:center;gap:7px"><span style="width:9px;height:9px;border-radius:50%;background:{{ t.color }}"></span>{{ t.name }}</span><span>{{ t.share }}</span><span>{{ t.acc }}</span><span>{{ t.cost }}</span><span>{{ t.lat }}</span></div></sc-for>
+            </div>
+            <div style="background:#fff7e6;border:1px solid #f2d999;border-radius:16px;padding:18px">
+              <div style="font:800 12px Nunito;color:#a8791a;margin-bottom:10px">⚠ GIỚI HẠN ĐÃ BIẾT CỦA HỆ THỐNG</div>
+              <div style="font:600 13px/1.8 Nunito;color:#7a5c14">• Nhận diện tốt nhất với một món rác, chụp rõ, đủ sáng.<br>• Không phân biệt được nhựa PET và HDPE khi nhãn mờ.<br>• Không xác định rác y tế lây nhiễm — luôn chuyển người.<br>• Quy định khác nhau giữa các toà — hướng dẫn chỉ đúng với toà đang chọn.<br>• Khối lượng AI ước lượng sai số ±40% — đội vệ sinh cân lại tại chỗ.<br>• Dữ liệu demo là mô phỏng, không phải dữ liệu cư dân thật.</div>
+            </div>
+          </sc-if>
+          <!-- mgr-screens -->
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:900},&quot;startRole&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;resident&quot;,&quot;cleaner&quot;,&quot;manager&quot;],&quot;default&quot;:&quot;resident&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Demo&quot;},&quot;demoBar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Demo&quot;}}">
+class Component extends DCLogic {
+  state = { role: 'resident', screen: 'onboarding', stack: [], classifyKind: 'recyclable', procStep: 0, pwStep: 1, mgrNav: 'overview' };
+
+  componentDidMount(){
+    const r = this.props.startRole;
+    if (r === 'cleaner') this.setState({ role:'cleaner', screen:'cRoute' });
+    else if (r === 'manager') this.setState({ role:'manager', screen:'mgrOverview' });
+  }
+  componentWillUnmount(){ if(this._pt) clearInterval(this._pt); }
+
+  go(s){ this.setState(st=>({ stack:[...st.stack, st.screen], screen:s })); }
+  back(){ this.setState(st=>{ const k=[...st.stack]; const p=k.pop(); return { stack:k, screen: p || 'ask' }; }); }
+
+  startClassify(kind){
+    if(this._pt) clearInterval(this._pt);
+    this.setState(st=>({ stack:[...st.stack, st.screen], classifyKind:kind, screen:'processing', procStep:0 }));
+    this._pt = setInterval(()=>{
+      this.setState(s=>{
+        const n = s.procStep + 1;
+        if(n >= 5){ clearInterval(this._pt); this._pt=null; setTimeout(()=>this.finishClassify(), 620); return { procStep:5 }; }
+        return { procStep:n };
+      });
+    }, 640);
+  }
+  finishClassify(){ this.setState({ screen:'result' }); }
+  cancelProc(){ if(this._pt) clearInterval(this._pt); this.back(); }
+
+  renderVals(){
+    const s = this.state.screen, role = this.state.role;
+    const isMobile = role === 'resident' || role === 'cleaner';
+    const stepData = [
+      { label:'Đang nén ảnh…', detail:'2,1 MB → 180 KB' },
+      { label:'Xoá thông tin vị trí…', detail:'đã xoá GPS' },
+      { label:'Làm mờ khuôn mặt…', detail:'mờ 1 khuôn mặt' },
+      { label:'Nhận diện món rác…', detail:'xong' },
+      { label:'Tra quy định toà S1…', detail:'2 nguồn' },
+    ];
+    const ps = this.state.procStep;
+    const procSteps = stepData.map((st,i)=>{
+      const isDone = i < ps, isActive = i === ps, isPending = i > ps;
+      return { label:st.label, detail: isDone ? st.detail : '', isDone, isActive, isPending,
+        opacity: isPending ? 0.45 : 1, labelColor: isPending ? '#9fb3a6' : '#fff' };
+    });
+    const activeC = '#16211a', idleC = '#b3bbb1';
+    const residentHome = ['ask','schedule','requests','me'].includes(s);
+    const pw = this.state.pwStep;
+    const acc = '#7c5cdf', pwOff = '#e6e1d6';
+    const privacyRows = [
+      { k:'Toạ độ GPS', a:'10.7769, 106.7009', b:'✕ đã xoá', color:'#c1471c' },
+      { k:'Thời gian chụp', a:'28/07 14:22', b:'✕ đã xoá', color:'#c1471c' },
+      { k:'Model điện thoại', a:'iPhone 13', b:'✕ đã xoá', color:'#c1471c' },
+      { k:'Khuôn mặt', a:'1 khuôn mặt', b:'✓ đã mờ', color:'#1f8a4f' },
+      { k:'Kích thước', a:'2,1 MB', b:'180 KB', color:'#1f8a4f' },
+    ];
+    const reqTimeline = [
+      { time:'28/07 14:20', label:'Đã gửi yêu cầu', icon:'✓', bg:'#2fae66', fg:'#fff', txt:'#16211a' },
+      { time:'28/07 14:20', label:'Hệ thống kiểm tra — vượt ngưỡng 30 kg, cần duyệt', icon:'✓', bg:'#2fae66', fg:'#fff', txt:'#16211a' },
+      { time:'', label:'Chờ ban quản lý duyệt', icon:'⏳', bg:'#f2d999', fg:'#a8791a', txt:'#a8791a' },
+      { time:'30/07 08:00', label:'Dự kiến thu gom', icon:'○', bg:'#eee7db', fg:'#b0b8ae', txt:'#b0b8ae' },
+    ];
+    const weekDays = ['T2','T3','T4','T5','T6','T7','CN'];
+    const B='#2f7fe0', G='#3aa657', X='#eef1ec';
+    const scheduleRows = [
+      { name:'Tái chế', color:'#2f7fe0', cells:[X,B,X,B,X,B,X] },
+      { name:'Hữu cơ', color:'#3aa657', cells:[G,X,G,X,G,X,G] },
+      { name:'Khác', color:'#8b8f8a', cells:[X,X,'#d7dad4',X,X,X,'#d7dad4'] },
+    ];
+    const cs = s;
+    const doneStop = (seq,unit,name,phone,items,weight,at)=>({ seq,unit,name,phone,items,weight, done:true, pending:false, doneAt:at, opacity:.7, border:'#dfe6df', numBg:'#e6f4ea', numFg:'#1f8a4f' });
+    const pendStop = (seq,unit,name,phone,items,weight)=>({ seq,unit,name,phone,items,weight, done:false, pending:true, doneAt:'', opacity:1, border:'#e2e8ef', numBg:'#16211a', numFg:'#fff' });
+    const routeStops = [
+      doneStop(1,'Toà S1 — căn 0806','Trần B.','0912•••333','1 bàn học',26,'07:58'),
+      doneStop(2,'Toà S1 — căn 1105','Phạm C.','0988•••221','3 thùng carton',12,'08:14'),
+      pendStop(3,'Toà S1 — căn 1203','Nguyễn Thị Lan','0901•••456','1 tủ gỗ, 2 thùng carton',48),
+    ];
+    const cleanerHome = ['cRoute','cVerify','cHistory','cMe'].includes(cs);
+    const ca='#16211a', ci='#aeb6c2';
+    const mg = s;
+    const nb = (on)=> on ? '#eef4ef' : 'transparent';
+    const nf = (on)=> on ? '#1f8a4f' : '#3a453d';
+
+    return {
+      demoBar: this.props.demoBar !== false,
+      isMobile, isManager: role === 'manager',
+      screenBg: '#f4f1ea',
+      statusColor: s === 'processing' ? '#ffffff' : '#16211a',
+      homeBarColor: s === 'processing' ? 'rgba(255,255,255,.4)' : 'rgba(20,40,25,.35)',
+
+      pillResident: role==='resident'?'#16211a':'transparent', pillResidentTxt: role==='resident'?'#fff':'#3a453d',
+      pillCleaner: role==='cleaner'?'#16211a':'transparent', pillCleanerTxt: role==='cleaner'?'#fff':'#3a453d',
+      pillManager: role==='manager'?'#16211a':'transparent', pillManagerTxt: role==='manager'?'#fff':'#3a453d',
+
+      sOnboarding: s==='onboarding', sLogin: s==='login', sAsk: s==='ask',
+      sProcessing: s==='processing',
+      sResultRecycle: s==='result' && this.state.classifyKind==='recyclable',
+      sResultHazard: s==='result' && this.state.classifyKind==='hazardous',
+      sUnsure: s==='unsure',
+      sPrivacy: s==='privacy', sPickup: s==='pickup', sRequests: s==='requests',
+      sRequestDetail: s==='requestDetail', sSchedule: s==='schedule', sMe: s==='me',
+      showResidentTabs: role==='resident' && residentHome,
+
+      pwS1: pw===1, pwS2: pw===2, pwS3: pw===3, pwS4: pw===4,
+      pw1: pw>=1?acc:pwOff, pw2: pw>=2?acc:pwOff, pw3: pw>=3?acc:pwOff,
+      pwShowNext: pw<4, pwNextLabel: pw===3 ? 'Gửi yêu cầu' : 'Tiếp tục',
+      privacyRows, reqTimeline, weekDays, scheduleRows, routeStops,
+      sCRoute: cs==='cRoute', sCVerify: cs==='cVerify', sCOther: cs==='cHistory'||cs==='cMe',
+      showCleanerTabs: role==='cleaner' && cleanerHome,
+      ctR: cs==='cRoute'?ca:ci, ctV: cs==='cVerify'?ca:ci, ctH: cs==='cHistory'?ca:ci, ctM: cs==='cMe'?ca:ci,
+      ctRoute: ()=>this.setState({screen:'cRoute',stack:[]}),
+      ctVerify: ()=>this.setState({screen:'cVerify',stack:[]}),
+      ctHistory: ()=>this.setState({screen:'cHistory',stack:[]}),
+      ctMe: ()=>this.setState({screen:'cMe',stack:[]}),
+
+      mOverview: mg==='mgrOverview', mPickup: mg==='mgrPickup', mVerify: mg==='mgrVerify', mRoute: mg==='mgrRoute', mOps: mg==='mgrOps',
+      nOverviewBg: nb(mg==='mgrOverview'), nOverviewFg: nf(mg==='mgrOverview'),
+      nPickupBg: nb(mg==='mgrPickup'), nPickupFg: nf(mg==='mgrPickup'),
+      nVerifyBg: nb(mg==='mgrVerify'), nVerifyFg: nf(mg==='mgrVerify'),
+      nRouteBg: nb(mg==='mgrRoute'), nRouteFg: nf(mg==='mgrRoute'),
+      nOpsBg: nb(mg==='mgrOps'), nOpsFg: nf(mg==='mgrOps'),
+      navOverview: ()=>this.setState({screen:'mgrOverview'}),
+      navPickup: ()=>this.setState({screen:'mgrPickup'}),
+      navVerify: ()=>this.setState({screen:'mgrVerify'}),
+      navRoute: ()=>this.setState({screen:'mgrRoute'}),
+      navOps: ()=>this.setState({screen:'mgrOps'}),
+      mgrStops: [
+        { n:1, unit:'S1 — căn 0806', items:'1 bàn học', kg:'26 kg' },
+        { n:2, unit:'S1 — căn 1105', items:'3 thùng carton', kg:'12 kg' },
+        { n:3, unit:'S1 — căn 1203', items:'1 tủ gỗ, 2 carton', kg:'48 kg' },
+        { n:4, unit:'S2 — căn 0904', items:'1 ghế sofa', kg:'34 kg' },
+        { n:5, unit:'S2 — căn 1502', items:'1 nệm cũ', kg:'22 kg' },
+      ],
+      tierRows: [
+        { name:'T0 — cache pHash', share:'22%', acc:'100%*', cost:'$0', lat:'15 ms', color:'#8b8f8a' },
+        { name:'T1 — gpt-4o-mini', share:'63%', acc:'88,2%', cost:'$0,0018', lat:'1,4 s', color:'#2f7fe0' },
+        { name:'T2 — gpt-4o', share:'15%', acc:'96,7%', cost:'$0,0121', lat:'2,8 s', color:'#7c5cdf' },
+      ],
+      pwNext: ()=>this.setState(st=>({ pwStep: Math.min(4, st.pwStep+1) })),
+      pwBack: ()=>{ if(this.state.pwStep>1) this.setState(st=>({pwStep:st.pwStep-1})); else this.back(); },
+      toRequests: ()=>this.setState({role:'resident',screen:'requests',stack:[]}),
+      toRequestDetail: ()=>this.go('requestDetail'),
+
+      tAsk: s==='ask'?activeC:idleC, tSchedule: s==='schedule'?activeC:idleC,
+      tRequests: s==='requests'?activeC:idleC, tMe: s==='me'?activeC:idleC,
+
+      procSteps,
+
+      toLogin: ()=>this.go('login'),
+      loginResident: ()=>this.setState({role:'resident',screen:'ask',stack:[]}),
+      loginCleaner: ()=>this.setState({role:'cleaner',screen:'cRoute',stack:[]}),
+      loginManager: ()=>this.setState({role:'manager',screen:'mgrOverview',stack:[]}),
+      goResident: ()=>this.setState({role:'resident',screen:'ask',stack:[]}),
+      goCleaner: ()=>this.setState({role:'cleaner',screen:'cRoute',stack:[]}),
+      goManager: ()=>this.setState({role:'manager',screen:'mgrOverview',stack:[]}),
+      restart: ()=>this.setState({role:'resident',screen:'onboarding',stack:[]}),
+
+      toAsk: ()=>this.setState({screen:'ask',stack:[]}),
+      shotRecycle: ()=>this.startClassify('recyclable'),
+      shotHazard: ()=>this.startClassify('hazardous'),
+      shotUnsure: ()=>this.startClassify('unsure'),
+      cancelProc: ()=>this.cancelProc(),
+      back: ()=>this.back(),
+      openSource: ()=>{},
+      toPickup: ()=>this.setState(st=>({ stack:[...st.stack, st.screen], screen:'pickup', pwStep:1 })),
+      toPrivacy: ()=>this.go('privacy'),
+      askManager: ()=>this.go('requests'),
+
+      tabAsk: ()=>this.setState({screen:'ask',stack:[]}),
+      tabSchedule: ()=>this.setState({screen:'schedule',stack:[]}),
+      tabRequests: ()=>this.setState({screen:'requests',stack:[]}),
+      tabMe: ()=>this.setState({screen:'me',stack:[]}),
+    };
+  }
+}
+
+/* finishClassify override for unsure kind */
+Component.prototype.finishClassify = function(){
+  this.setState(st=>({ screen: st.classifyKind==='unsure' ? 'unsure' : 'result' }));
+};
+</script>
+</body>
+</html>

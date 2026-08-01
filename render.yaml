@@ -1,0 +1,63 @@
+# Khai báo hạ tầng cho Render — backend GreenBin AI + PostgreSQL.
+#
+# Cách dùng: trên Render chọn "New → Blueprint", trỏ vào repo này. Render đọc
+# file này, dựng web service từ `Dockerfile` sẵn có và một cơ sở dữ liệu
+# PostgreSQL, rồi tự nối `DATABASE_URL` giữa hai bên.
+#
+# Ba biến phải tự điền trên bảng điều khiển (đánh dấu `sync: false`, Render sẽ
+# hỏi lúc tạo): `GEMINI_API_KEY`, và `CORS_ORIGINS` sau khi có domain Vercel thật.
+#
+# Giới hạn đã biết của gói miễn phí, đã ghi thẳng lên trang Vận hành:
+#   - đĩa là tạm thời → ảnh cư dân tải lên mất khi service khởi động lại;
+#   - không đủ RAM cho torch → `LOCAL_MODEL_ENABLED=false`, tầng T0.5 chỉ chạy khi dev;
+#   - service ngủ khi rảnh → request đầu tiên chậm, phải mở web trước lúc demo.
+
+databases:
+  - name: greenbin-db
+    databaseName: greenbin
+    plan: free
+
+services:
+  - type: web
+    name: greenbin-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: greenbin-db
+          property: connectionString
+
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+
+      # Máy chủ tự nạp danh mục, toà, tài khoản demo lúc khởi động — trên Render
+      # không có chỗ chạy tay `scripts/seed.py`. Gọi lại nhiều lần vô hại.
+      - key: SEED_ON_START
+        value: "true"
+      - key: SEED_DEMO_ON_START
+        value: "true"
+
+      # Tầng T0.5 cần torch (1,19 GB) — không cài trên bản deploy.
+      - key: LOCAL_MODEL_ENABLED
+        value: "false"
+
+      - key: VISION_PROVIDER
+        value: gemini
+      # Điền trên bảng điều khiển. Không có key này thì luồng chụp ảnh không chạy.
+      - key: GEMINI_API_KEY
+        sync: false
+
+      # Render tự sinh chuỗi ngẫu nhiên — không bao giờ dùng lại secret của máy dev.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # Cập nhật lại bằng domain Vercel thật sau khi frontend deploy xong.
+      # `https://localhost` và `capacitor://localhost` là origin của app Android
+      # đóng gói bằng Capacitor — thiếu là app cài về gọi API bị chặn.
+      - key: CORS_ORIGINS
+        sync: false

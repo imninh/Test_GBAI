@@ -1,0 +1,16 @@
+# Tầng T0.5 — CLIP zero-shot chạy offline trên CPU.
+#
+# Tách khỏi `requirements.txt` vì torch chiếm 1,19 GB và transformers 90 MB:
+# gói miễn phí của Render không đủ dung lượng lẫn RAM cho chúng, nên bản deploy
+# chạy `LOCAL_MODEL_ENABLED=false` và bỏ qua tầng này.
+#
+# Chỉ cài khi muốn chạy T0.5 trên máy dev. Cài bản CPU cho nhẹ:
+#
+#     pip install -r requirements.txt
+#     pip install torch --index-url https://download.pytorch.org/whl/cpu
+#     pip install -r requirements-local-model.txt
+#
+# Model tải một lần (~350 MB) rồi chạy hoàn toàn offline.
+
+torch>=2.4.0
+transformers>=4.44.0

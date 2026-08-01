@@ -60,7 +60,13 @@ chức — giá trị trong `.env.example` chỉ là chỗ giữ chỗ.
 ## Bước 2 — Backend lên Render (20 phút)
 
 1. Đăng ký [render.com](https://render.com) bằng chính tài khoản GitHub.
-2. **New → Blueprint** → chọn repo vừa push.
+2. Vào thẳng **<https://dashboard.render.com/blueprints>** → **New Blueprint Instance**
+   → chọn repo vừa push.
+
+   > ⚠️ **Không dùng nút "New service"** ở cuối danh sách service trong một
+   > project — menu đó chỉ tạo từng service lẻ (Static Site, Web Service,
+   > Postgres…) và **không có mục Blueprint**. Blueprint nằm ở nút **"New"**
+   > toàn cục phía trên, hoặc đi thẳng bằng đường dẫn ở trên cho nhanh.
 3. Render đọc [`render.yaml`](../render.yaml) và tự dựng **hai** thứ: một web
    service (`greenbin-api`) và một PostgreSQL (`greenbin-db`), tự nối
    `DATABASE_URL` giữa chúng. Không phải cấu hình tay.

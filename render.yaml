@@ -12,16 +12,22 @@
 #   - không đủ RAM cho torch → `LOCAL_MODEL_ENABLED=false`, tầng T0.5 chỉ chạy khi dev;
 #   - service ngủ khi rảnh → request đầu tiên chậm, phải mở web trước lúc demo.
 
+# Singapore là vùng gần Việt Nam nhất Render có — chênh lệch độ trễ so với
+# Oregon (mặc định) là vài trăm mili giây mỗi request, thấy rõ khi demo trực
+# tiếp. Máy chủ và CSDL phải cùng vùng, không thì mỗi truy vấn đi vòng nửa
+# vòng Trái Đất.
 databases:
   - name: greenbin-db
     databaseName: greenbin
     plan: free
+    region: singapore
 
 services:
   - type: web
     name: greenbin-api
     runtime: docker
     plan: free
+    region: singapore
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     envVars:

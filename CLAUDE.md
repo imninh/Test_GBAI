@@ -301,8 +301,17 @@ mật khẩu chung `demo1234`. Màn đăng nhập có 3 nút vào thẳng.
 
 ## 11. Việc tiếp theo (theo thứ tự)
 
-> ✅ **`docs/PLAN_APP_DEPLOY.md` đã thực hiện xong phần code** (01/08/2026 buổi 2,
-> ADR-0005). Còn lại là **việc cần tài khoản của chủ dự án**, xếp ở mục 0 dưới đây.
+> 📌 **ĐỌC TRƯỚC: [`docs/BAN_GIAO_2026-08-01.md`](docs/BAN_GIAO_2026-08-01.md)**
+> — bàn giao phiên 01/08: địa chỉ deploy, **10 lỗi đã sửa kèm nguyên nhân**,
+> số đo token/quota thật, và **đặc tả Hướng 3 (provider theo từng tầng)** là
+> việc chính đang chờ làm.
+>
+> ✅ **`docs/PLAN_APP_DEPLOY.md` đã xong** (ADR-0005) và **đã deploy thật**:
+> backend https://greenbin-api-hozl.onrender.com · web https://test-gbai-gray.vercel.app
+> · repo https://github.com/imninh/Test_GBAI · CI xanh.
+>
+> ⚠️ **Bản deploy chỉ chạy 2/4 tầng**: T0.5 tắt (thiếu RAM cho torch), T2 hỏng
+> (cạn quota Gemini). Hướng 3 là cách sửa — xem bàn giao mục 5.
 
 0. **Đưa sản phẩm lên mạng** — làm theo **[`docs/HUONG_DAN_DEPLOY.md`](docs/HUONG_DAN_DEPLOY.md)**
    (checklist đầy đủ kèm mục gỡ lỗi). Tóm tắt thứ tự, vì URL bị nướng vào lúc build:

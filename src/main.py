@@ -23,9 +23,33 @@ async def lifespan(app: FastAPI):
     init_db()
     if settings.seed_on_start:
         _nap_du_lieu_nen(demo=settings.seed_demo_on_start)
+    if settings.local_model_enabled:
+        _nap_truoc_model_local()
     logger.info("GreenBin AI khởi động — môi trường %s, provider %s", settings.app_env, settings.vision_provider)
     yield
     logger.info("GreenBin AI đã dừng")
+
+
+def _nap_truoc_model_local() -> None:
+    """Nạp CLIP vào bộ nhớ ngay lúc khởi động, chạy nền.
+
+    Đo được: nạp lần đầu mất ~60 giây, các lần chấm sau chỉ ~650ms. Không nạp
+    trước thì **người dùng đầu tiên phải gánh trọn 60 giây đó** và tưởng là
+    ứng dụng treo. Chạy ở luồng riêng để máy chủ nhận request được ngay.
+    """
+    import threading
+
+    def chay() -> None:
+        try:
+            from src.services.vision import warm_up_local_model
+
+            warm_up_local_model()
+        except (ImportError, OSError, RuntimeError):
+            # Thiếu torch hoặc không tải được model thì bỏ qua — tầng T0.5 tự
+            # nhường cho T1, đây là đường đi bình thường trên bản deploy.
+            logger.info("Không nạp được model local — bỏ qua tầng T0.5.")
+
+    threading.Thread(target=chay, name="nap-model-local", daemon=True).start()
 
 
 def _nap_du_lieu_nen(*, demo: bool) -> None:

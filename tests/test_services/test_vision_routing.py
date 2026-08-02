@@ -156,3 +156,77 @@ def test_thieu_key_cua_mot_tang_thi_bao_ngay_tren_trang_van_hanh(monkeypatch: py
 
     assert theo_tang["t1"]["has_api_key"] is False
     assert theo_tang["t2"]["has_api_key"] is True
+
+
+# --- Đọc kết quả model: nhãn tổng bị bỏ trống -----------------------------
+
+_MA_HOP_LE = {"recyclable_plastic", "recyclable_glass", "hazardous", "organic"}
+
+
+def test_thieu_nhan_tong_thi_suy_tu_mon_chac_nhat() -> None:
+    """Model liệt kê đủ `items` nhưng quên `category_code` ở tầng ngoài.
+
+    Từ khi prompt đổi sang hai bước, model dồn chú ý vào `items` và hay bỏ
+    trống nhãn tổng. Trước bản vá 02/08, đường này dẫn thẳng tới màn "Chưa nhận
+    ra món này thuộc nhóm nào" — trong khi câu trả lời đang nằm ngay trong
+    danh sách model vừa liệt kê.
+    """
+    from src.services.vision.base import parse_model_json
+
+    tra_ve = json.dumps(
+        {
+            "item_name": "",
+            "category_code": "",
+            "confidence": 0,
+            "items": [
+                {"name": "Bình thuỷ tinh", "category_code": "recyclable_glass", "confidence": 0.6},
+                {"name": "Chai nhựa PET", "category_code": "recyclable_plastic", "confidence": 0.9},
+            ],
+        }
+    )
+
+    data = parse_model_json(tra_ve, _MA_HOP_LE)
+
+    assert data["category_code"] == "recyclable_plastic", "phải lấy món chắc nhất"
+    assert data["item_name"] == "Chai nhựa PET"
+    assert data["confidence"] == 0.9
+
+
+def test_ma_bia_ngoai_danh_muc_van_suy_duoc_tu_items() -> None:
+    """Model bịa mã cho đồ điện tử — vẫn phải trả lời được từ phần còn lại.
+
+    Danh mục không có nhóm rác điện tử, nên model hay bịa ra "e_waste". Đoạn
+    kiểm mã xoá trắng nhãn tổng, và trước bản vá thì mọi thứ dừng ở đó.
+    """
+    from src.services.vision.base import parse_model_json
+
+    tra_ve = json.dumps(
+        {
+            "item_name": "Chuột máy tính",
+            "category_code": "e_waste",
+            "confidence": 0.88,
+            "items": [{"name": "Chai nhựa PET", "category_code": "recyclable_plastic", "confidence": 0.7}],
+        }
+    )
+
+    data = parse_model_json(tra_ve, _MA_HOP_LE)
+
+    assert data["category_code"] == "recyclable_plastic"
+
+
+def test_khong_co_items_hop_le_thi_van_de_trong_cho_he_thong_tu_choi() -> None:
+    """Không suy bừa: mọi mã đều ngoài danh mục thì để trống, chuyển người."""
+    from src.services.vision.base import parse_model_json
+
+    tra_ve = json.dumps(
+        {
+            "item_name": "Chuột máy tính",
+            "category_code": "e_waste",
+            "confidence": 0.9,
+            "items": [{"name": "Sạc điện thoại", "category_code": "electronic", "confidence": 0.9}],
+        }
+    )
+
+    data = parse_model_json(tra_ve, _MA_HOP_LE)
+
+    assert data["category_code"] == ""

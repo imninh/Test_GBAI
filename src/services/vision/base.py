@@ -14,7 +14,7 @@ from typing import Protocol
 
 from src.config import MODEL_PRICES_USD_PER_MTOK
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 
 
 @dataclass
@@ -86,13 +86,19 @@ Nhiệm vụ gồm HAI bước, làm đủ cả hai:
 1. LIỆT KÊ mọi món có thể vứt bỏ mà bạn nhìn thấy vào mảng `items`.
 2. Chọn ĐÚNG MỘT mã nhóm cho món CHIẾM CHỦ ĐẠO, điền vào `category_code`.
 
+Cả hai bước đều BẮT BUỘC. Làm bước 1 rồi bỏ trống `category_code` là câu trả lời hỏng.
+
 Quy tắc bắt buộc:
 - `items` KHÔNG BAO GIỜ được để rỗng. Ảnh chỉ có một món thì `items` có đúng một phần tử.
   Ảnh có năm món thì `items` có năm phần tử. Đây là bước bắt buộc, không phải tuỳ chọn:
   hệ thống dựa vào danh sách này để biết ảnh có lẫn nhiều nhóm rác hay không.
+- `category_code` ở tầng ngoài cùng cũng KHÔNG BAO GIỜ được để rỗng, kể cả khi ảnh có
+  nhiều món. Chọn món chiếm chủ đạo rồi lấy mã của nó.
 - Đếm cả những món KHÔNG phải rác sinh hoạt: đồ điện tử (chuột, sạc, tai nghe), đồ đang
   dùng, vật dụng cá nhân. Cứ liệt kê rồi gán nhóm gần nhất — bỏ sót nguy hiểm hơn thừa.
-- Chỉ được chọn mã có trong danh sách. Không tự bịa mã mới.
+- Chỉ được chọn mã có trong danh sách, cho CẢ `category_code` lẫn từng phần tử của
+  `items`. Không tự bịa mã mới. Đồ điện tử KHÔNG có nhóm riêng — xếp vào nhóm nguy hại,
+  đừng bịa ra mã như "e_waste" hay "electronic".
 - confidence là mức chắc chắn thật của bạn, từ 0 tới 1. Không chắc thì để thấp — hệ thống có
   cơ chế chuyển cho người xử lý, đoán bừa mới là hành vi nguy hiểm.
 - Nếu món có thể là pin, ắc quy, bóng đèn, thuốc, hoá chất, bình xịt, vật sắc nhọn y tế,
@@ -147,6 +153,14 @@ def build_text_prompt(text: str, categories: list[CategoryOption]) -> str:
 _JSON_BLOCK_RE = re.compile(r"\{.*\}", re.DOTALL)
 
 
+def _to_float(value: object) -> float:
+    """Ép về [0, 1]. Model trả chữ hay ``null`` thì coi như 0, không cho nổ."""
+    try:
+        return max(0.0, min(1.0, float(value)))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def parse_model_json(text: str, allowed_codes: set[str]) -> dict:
     """Đọc JSON model trả về, chịu được trường hợp nó bọc trong ```json.
 
@@ -168,16 +182,35 @@ def parse_model_json(text: str, allowed_codes: set[str]) -> dict:
         data["category_code"] = ""
         data["confidence"] = 0.0
         data["reason"] = f"Model trả về mã ngoài danh mục ({code})"
+
+    # Có `items` nhưng thiếu nhãn tổng → suy ra từ món chắc nhất, đừng vứt đi.
+    #
+    # Từ khi prompt đổi sang hai bước (liệt kê trước, chọn nhãn sau), model dồn
+    # sự chú ý vào `items` và **hay quên điền `category_code` ở tầng trên**;
+    # model bịa mã ngoài danh mục cho đồ điện tử cũng rơi vào đúng nhánh này vì
+    # đoạn trên vừa xoá trắng nó. Cả hai đường đều dẫn tới `outcome.category`
+    # bằng None, tức màn "Chưa nhận ra món này thuộc nhóm nào" — trong khi dữ
+    # liệu để trả lời thì đang nằm ngay trong `items`.
+    #
+    # Suy ra chỉ để lấp chỗ trống, KHÔNG nới lỏng an toàn: `items` trải trên
+    # nhiều nhóm thì `nhieu_nhom_khac_nhau` ở tầng trên vẫn từ chối như cũ.
+    if not data.get("category_code"):
+        hop_le = [
+            i
+            for i in (data.get("items") or [])
+            if isinstance(i, dict) and str(i.get("category_code", "")).strip() in allowed_codes
+        ]
+        if hop_le:
+            chac_nhat = max(hop_le, key=lambda i: _to_float(i.get("confidence")))
+            data["category_code"] = str(chac_nhat["category_code"]).strip()
+            data["confidence"] = _to_float(chac_nhat.get("confidence"))
+            if not str(data.get("item_name", "")).strip():
+                data["item_name"] = str(chac_nhat.get("name", "")).strip()
+            data["reason"] = data.get("reason") or "Suy từ món chắc nhất trong danh sách model liệt kê"
     return data
 
 
 def result_from_json(data: dict, *, model: str, provider: str, usage: Usage, raw_text: str) -> VisionResult:
-    def to_float(value: object) -> float:
-        try:
-            return max(0.0, min(1.0, float(value)))  # type: ignore[arg-type]
-        except (TypeError, ValueError):
-            return 0.0
-
     items = data.get("items") or []
     if not isinstance(items, list):
         items = []
@@ -185,7 +218,7 @@ def result_from_json(data: dict, *, model: str, provider: str, usage: Usage, raw
     return VisionResult(
         item_name=str(data.get("item_name", "")).strip(),
         category_code=str(data.get("category_code", "")).strip(),
-        confidence=to_float(data.get("confidence")),
+        confidence=_to_float(data.get("confidence")),
         reason=str(data.get("reason", "")).strip(),
         items=[i for i in items if isinstance(i, dict)],
         quality_issue=str(data.get("quality_issue", "")).strip(),

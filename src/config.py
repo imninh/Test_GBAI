@@ -168,7 +168,7 @@ class Settings(BaseSettings):
     # quét lại bằng `python eval/run_retrieval_eval.py --quet-trong-so`.
     rag_vector_weight: float = Field(default=0.35, ge=0.0, le=1.0)
 
-    prompt_version: str = "v1"
+    prompt_version: str = "v2"
 
     # --- Tầng T0.5: model local chạy offline trên CPU ---------------------
     local_model_enabled: bool = True

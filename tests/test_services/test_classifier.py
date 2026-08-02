@@ -555,3 +555,84 @@ def test_khai_nhieu_vat_ma_khong_liet_ke_thi_tu_choi_du_confidence_cao(
 
     assert outcome.refused
     assert outcome.refusal_reason == "nhieu_vat"
+
+
+def test_t1_tra_ve_json_hong_thi_t2_cuu_thay_vi_chet_ca_lan_phan_loai(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ca dang xay ra tren ban deploy 02/08.
+
+    `meta/llama-3.2-11b-vision-instruct` o T1 tra ve chuoi khong doc duoc thanh
+    JSON -> ValueError -> VISION-500. Truoc ban va, nhanh do `return` thang nen
+    nguoi dung nhan "He thong nhan dien dang gap su co" o MOI lan chup, du
+    Gemini o T2 van song. Do dung la loi hua cua ADR-0006 bi thung: "mat mot
+    nguon chi mat mot tang".
+    """
+    from src.services.vision import VisionUnavailableError  # noqa: F401
+
+    class JsonHong:
+        provider_name = "nvidia"
+
+        def classify_image(self, *args, **kwargs):
+            raise ValueError("Model không trả về JSON đọc được")
+
+        def classify_text(self, *args, **kwargs):
+            raise ValueError("Model không trả về JSON đọc được")
+
+    _dung_model_gia(
+        monkeypatch,
+        theo_tang={
+            "t1": JsonHong(),  # type: ignore[dict-item]
+            "t2": FakeVisionClient(
+                provider_name="gemini",
+                results=[make_result(category_code="recyclable_plastic", confidence=0.9)],
+            ),
+        },
+        nha_cung_cap={"t1": "nvidia", "t2": "gemini"},
+    )
+
+    outcome = classify_waste(db_session, image_bytes=b"anh-chai", image_phash="aaaa1111bbbb2222")
+
+    assert not outcome.refused, "T2 con song thi khong duoc tra ve man loi"
+    assert outcome.tier == "t2_full"
+    assert outcome.category is not None and outcome.category.code == "recyclable_plastic"
+    assert "T1 lỗi" in outcome.escalation_reason
+    # Van phai giu lai dau vet T1 hong de trang Van hanh dem duoc.
+    assert any(n.node == "classify_waste" and n.error_type == "VISION-500" for n in outcome.nodes)
+
+
+def test_t1_hong_va_t2_cung_hong_thi_moi_bao_loi(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ca hai nguon cung chet thi van phai bao loi tu te, khong duoc doan bua."""
+    from src.services.vision import VisionUnavailableError
+
+    class Chet:
+        provider_name = "nvidia"
+
+        def classify_image(self, *args, **kwargs):
+            raise ValueError("Model trả về JSON hỏng")
+
+        def classify_text(self, *args, **kwargs):
+            raise ValueError("Model trả về JSON hỏng")
+
+    class HetQuota:
+        provider_name = "gemini"
+
+        def classify_image(self, *args, **kwargs):
+            raise VisionUnavailableError("Model đang quá tải (rate limit).", code="VISION-429")
+
+        def classify_text(self, *args, **kwargs):
+            raise VisionUnavailableError("Model đang quá tải (rate limit).", code="VISION-429")
+
+    _dung_model_gia(
+        monkeypatch,
+        theo_tang={"t1": Chet(), "t2": HetQuota()},  # type: ignore[dict-item]
+        nha_cung_cap={"t1": "nvidia", "t2": "gemini"},
+    )
+
+    outcome = classify_waste(db_session, image_bytes=b"anh-chai", image_phash="cccc3333dddd4444")
+
+    assert outcome.refused
+    assert outcome.refusal_reason == "model_loi"
+    assert any(n.error_type == "VISION-429" for n in outcome.nodes), "phai ghi lai ca loi cua T2"

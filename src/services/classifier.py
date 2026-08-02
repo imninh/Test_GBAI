@@ -83,7 +83,7 @@ class ClassifyOutcome:
     tier: str = ""
     model: str = ""
     provider: str = ""
-    prompt_version: str = "v1"
+    prompt_version: str = "v2"
 
     refused: bool = False
     refusal_reason: str = ""
@@ -211,6 +211,20 @@ def _apply_vision_result(
     return outcome
 
 
+def _goi_model(
+    client: object,
+    *,
+    image_bytes: bytes | None,
+    text_query: str,
+    categories: list[CategoryOption],
+    model: str,
+) -> VisionResult:
+    """Gọi model, tự chọn đường ảnh hay đường chữ. Lỗi để nguyên cho người gọi."""
+    if image_bytes is not None:
+        return client.classify_image(image_bytes, categories, model)  # type: ignore[attr-defined]
+    return client.classify_text(text_query, categories, model)  # type: ignore[attr-defined]
+
+
 def classify_waste(
     session: Session,
     *,
@@ -333,12 +347,18 @@ def classify_waste(
         outcome.latency_ms = int((time.perf_counter() - started) * 1000)
         return _refuse(outcome, RefusalReason.MODEL_LOI, headline=exc.message_vi)
 
+    # Cùng model **trên cùng một nhà cung cấp** thì gọi lại chỉ tốn tiền mà không
+    # có ý kiến thứ hai. Khác nhà cung cấp thì dù trùng tên model vẫn là hai
+    # đường độc lập, vẫn đáng gọi.
+    t2_khac_t1 = (provider_t2, model_t2) != (provider_first, model_first)
+    t2_da_dung_de_cuu = False
+    tier_ket_qua = TIER_T1
+
     step = time.perf_counter()
     try:
-        if image_bytes is not None:
-            result = client.classify_image(image_bytes, categories, model_first)
-        else:
-            result = client.classify_text(text_query, categories, model_first)
+        result = _goi_model(
+            client, image_bytes=image_bytes, text_query=text_query, categories=categories, model=model_first
+        )
     except (VisionUnavailableError, ValueError) as exc:
         code = getattr(exc, "code", "VISION-500")
         outcome.nodes.append(
@@ -348,13 +368,51 @@ def classify_waste(
                 duration_ms=int((time.perf_counter() - step) * 1000),
                 llm_calls=1,
                 error_type=code,
+                meta={"tier": TIER_T1, "provider": provider_first, "model": model_first},
             )
         )
-        outcome.latency_ms = int((time.perf_counter() - started) * 1000)
         message = getattr(exc, "message_vi", "Hệ thống nhận diện đang gặp sự cố.")
-        return _refuse(outcome, RefusalReason.MODEL_LOI, headline=message)
 
-    _apply_vision_result(session, outcome, result, TIER_T1)
+        # T1 chết KHÔNG được kéo cả lần phân loại chết theo.
+        #
+        # Đây đúng là lời hứa của ADR-0006 — "mất một nguồn chỉ mất một tầng" —
+        # nhưng trước 02/08 nhánh này `return` thẳng, nên lời hứa đó chỉ đúng
+        # cho đường cạn quota của T2, còn T1 hỏng thì hỏng hẳn dù T2 vẫn sống.
+        # Đo trên bản deploy: `meta/llama-3.2-11b-vision-instruct` ở T1 trả về
+        # JSON không đọc được (VISION-500) và người dùng nhận "Hệ thống nhận
+        # diện đang gặp sự cố" ở mọi lần chụp, trong khi Gemini ở T2 vẫn chạy.
+        result = None
+        if model_t2 and t2_khac_t1:
+            step = time.perf_counter()
+            try:
+                result = _goi_model(
+                    get_vision_client("t2"),
+                    image_bytes=image_bytes,
+                    text_query=text_query,
+                    categories=categories,
+                    model=model_t2,
+                )
+            except (VisionUnavailableError, ValueError) as exc_t2:
+                outcome.nodes.append(
+                    NodeMetric(
+                        node="classify_waste_t2",
+                        status="error",
+                        duration_ms=int((time.perf_counter() - step) * 1000),
+                        llm_calls=1,
+                        error_type=getattr(exc_t2, "code", "VISION-500"),
+                        meta={"provider": provider_t2, "model": model_t2, "ly_do": "cuu_khi_t1_hong"},
+                    )
+                )
+
+        if result is None:
+            outcome.latency_ms = int((time.perf_counter() - started) * 1000)
+            return _refuse(outcome, RefusalReason.MODEL_LOI, headline=message)
+
+        t2_da_dung_de_cuu = True
+        tier_ket_qua = TIER_T2
+        outcome.escalation_reason = f"T1 lỗi ({code}) — chuyển sang nhà cung cấp của T2"
+
+    _apply_vision_result(session, outcome, result, tier_ket_qua)
     outcome.cost_usd += result.usage.cost_usd
     outcome.price_known = outcome.price_known and result.usage.price_known
     outcome.nodes.append(
@@ -367,11 +425,12 @@ def classify_waste(
             cost_usd=result.usage.cost_usd,
             llm_calls=1,
             meta={
-                "tier": TIER_T1,
-                "provider": result.provider or provider_first,
+                "tier": tier_ket_qua,
+                "provider": result.provider or (provider_t2 if t2_da_dung_de_cuu else provider_first),
                 "model": result.model,
                 "confidence": round(result.confidence, 4),
                 "nguong_nhom": round(outcome.min_confidence, 4),
+                **({"cuu_khi_t1_hong": True} if t2_da_dung_de_cuu else {}),
             },
         )
     )
@@ -384,11 +443,9 @@ def classify_waste(
         items=result.items,
         co_anh=image_bytes is not None,
     )
-    # Cùng model **trên cùng một nhà cung cấp** thì gọi lại chỉ tốn tiền mà không
-    # có ý kiến thứ hai. Khác nhà cung cấp thì dù trùng tên model vẫn là hai
-    # đường độc lập, vẫn đáng gọi.
-    t2_khac_t1 = (provider_t2, model_t2) != (provider_first, model_first)
-    if escalation and model_t2 and t2_khac_t1:
+    # Đã phải nhờ T2 cứu vì T1 hỏng thì kết quả đang cầm CHÍNH LÀ của T2 — gọi
+    # lại lần nữa chỉ tốn thêm một lượt quota để nhận đúng câu trả lời đó.
+    if escalation and model_t2 and t2_khac_t1 and not t2_da_dung_de_cuu:
         outcome.escalation_reason = escalation
         step = time.perf_counter()
         try:

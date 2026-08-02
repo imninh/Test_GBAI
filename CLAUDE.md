@@ -4,7 +4,7 @@
 > Khi có quyết định mới hoặc hoàn thành một mốc, sửa mục "Trạng thái hiện tại"
 > và "Việc tiếp theo" ở cuối file. Nhật ký chi tiết theo ngày ghi ở `WORKLOG.md`.
 
-**Cập nhật lần cuối:** 01/08/2026
+**Cập nhật lần cuối:** 02/08/2026
 
 ---
 
@@ -238,7 +238,8 @@ Ca khó thật cần có trong tập test: hộp sữa giấy tráng nhôm ↔ g
 
 ## 10. Trạng thái hiện tại
 
-**Cập nhật 02/08/2026 — cả 4 tầng đã chạy được trên hạ tầng miễn phí.**
+**Cập nhật 02/08/2026 (buổi 2) — bản deploy chạy đúng provider theo từng tầng,
+nhưng đang có một lỗi chặn: xem [BAN_GIAO_2026-08-02.md](docs/BAN_GIAO_2026-08-02.md) mục 3.**
 
 Backend FastAPI 44 route · agent LangGraph có trace · frontend Next.js 21 màn ·
 **105 test pass** · ruff sạch (3 cảnh báo còn lại nằm ở file mẫu của template và
@@ -304,8 +305,18 @@ mật khẩu chung `demo1234`. Màn đăng nhập có 3 nút vào thẳng.
 
 - ✅ **Đã có key Gemini và NVIDIA** trong `.env` máy dev; luồng chụp ảnh chạy
   thật. **DeepSeek không nhận ảnh** nên vẫn không dùng được cho T1/T2.
-  ⛔ Trên **Render mới chỉ có `GEMINI_API_KEY`** — thiếu `NVIDIA_API_KEY` và ba
-  biến `VISION_PROVIDER_*` nên bản deploy vẫn dồn mọi tầng vào Gemini.
+  ✅ **Render nay đã đủ key và đủ ba biến `VISION_PROVIDER_*`** — đo 02/08 qua
+  `ops/metrics`: `single_provider: false`, T1 nvidia · T2 gemini · text nvidia,
+  cả ba `has_api_key: true`. Việc chặn này đã xong.
+- ⛔ **T1 đang dùng `meta/llama-3.2-11b-vision-instruct` và nó trả JSON hỏng rất
+  thường xuyên** (mã `VISION-500`). Đã có bản vá để T2 cứu khi T1 hỏng
+  (`a5064c1`), nhưng mỗi lần cứu là một lần tiêu quota Gemini (20 request/ngày).
+  **Đổi model T1 sang model vision lớn hơn trên chính NVIDIA NIM** —
+  [BAN_GIAO_2026-08-02.md](docs/BAN_GIAO_2026-08-02.md) mục 9 việc 2.
+- ⛔ **Gần như mọi ảnh thật đang bị từ chối với lý do `nhieu_vat`** dù model nhận
+  đúng món và confidence 0,90–0,95 (ngưỡng chỉ 0,60). Đây là tác dụng phụ của
+  prompt v2 — chi tiết và hai cách xử lý ở
+  [BAN_GIAO_2026-08-02.md](docs/BAN_GIAO_2026-08-02.md) mục 3.
 - Repo GitHub đã có, `.env` đã có. Chưa chạy `scripts/setup_hooks.ps1` → AI
   logging (deliverable #4) vẫn chưa chạy.
 - Chưa có bộ ảnh thật và chưa chạy `eval/` → số liệu trang Chất lượng AI hiện
@@ -324,20 +335,22 @@ mật khẩu chung `demo1234`. Màn đăng nhập có 3 nút vào thẳng.
 
 ## 11. Việc tiếp theo (theo thứ tự)
 
-> 📌 **ĐỌC TRƯỚC: [`docs/BAN_GIAO_2026-08-01.md`](docs/BAN_GIAO_2026-08-01.md)**
-> — bàn giao phiên 01/08: địa chỉ deploy, **10 lỗi đã sửa kèm nguyên nhân**,
-> số đo token/quota thật, và **đặc tả Hướng 3 (provider theo từng tầng)** là
-> việc chính đang chờ làm.
+> 📌 **ĐỌC TRƯỚC: [`docs/BAN_GIAO_2026-08-02.md`](docs/BAN_GIAO_2026-08-02.md)**
+> — bàn giao phiên 02/08, **mới nhất**: 5 commit đã đẩy · **một lỗi đang mở khiến
+> gần như mọi ảnh thật bị từ chối** · đặc tả hướng "một ảnh nhiều món" · đính
+> chính chính file này · kỹ thuật gỡ lỗi trên bản deploy · các chỗ đã đoán sai.
+>
+> Bàn giao phiên trước: [`docs/BAN_GIAO_2026-08-01.md`](docs/BAN_GIAO_2026-08-01.md)
+> — 10 lỗi đã sửa kèm nguyên nhân, số đo token/quota thật, đặc tả Hướng 3.
 >
 > ✅ **`docs/PLAN_APP_DEPLOY.md` đã xong** (ADR-0005) và **đã deploy thật**:
 > backend https://greenbin-api-hozl.onrender.com · web https://test-gbai-gray.vercel.app
 > · repo https://github.com/imninh/Test_GBAI · CI xanh.
 >
-> ⚠️ **Bản deploy đang chạy 2/4 tầng, mã đã sẵn cho 4/4.** Cả hai việc chặn đều
-> đã xử lý xong ở máy dev — còn lại là thao tác trên bảng điều khiển Render:
-> 1. `NVIDIA_API_KEY` + `VISION_PROVIDER_T1/_T2/_TEXT` → T2 sống lại (ADR-0006);
-> 2. `CLIP_ASSETS_URL` trỏ vào bộ ONNX đính trong GitHub Release → T0.5 sống
->    lại (ADR-0007, các bước ở `docs/HUONG_DAN_DEPLOY.md`).
+> ✅ **Bản deploy nay chạy đúng provider theo từng tầng** (ADR-0006) — việc chặn
+> `NVIDIA_API_KEY` + `VISION_PROVIDER_*` đã xong, đo 02/08. Còn lại:
+> `CLIP_ASSETS_URL` trỏ vào bộ ONNX đính trong GitHub Release → T0.5 sống lại
+> (ADR-0007, các bước ở `docs/HUONG_DAN_DEPLOY.md`).
 
 0. **Đưa sản phẩm lên mạng** — làm theo **[`docs/HUONG_DAN_DEPLOY.md`](docs/HUONG_DAN_DEPLOY.md)**
    (checklist đầy đủ kèm mục gỡ lỗi). Tóm tắt thứ tự, vì URL bị nướng vào lúc build:

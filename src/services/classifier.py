@@ -377,7 +377,12 @@ def classify_waste(
     )
 
     escalation = safety.should_escalate_to_t2(
-        outcome.confidence, outcome.min_confidence, result.suspect_hazardous, result.quality_issue
+        outcome.confidence,
+        outcome.min_confidence,
+        result.suspect_hazardous,
+        result.quality_issue,
+        items=result.items,
+        co_anh=image_bytes is not None,
     )
     # Cùng model **trên cùng một nhà cung cấp** thì gọi lại chỉ tốn tiền mà không
     # có ý kiến thứ hai. Khác nhà cung cấp thì dù trùng tên model vẫn là hai
@@ -461,6 +466,18 @@ def _finalize(outcome: ClassifyOutcome, text_query: str, quality_issue: str = ""
     # sai, **bất kể confidence**. Kiểm trước bước so ngưỡng bên dưới, vì bước
     # đó chỉ chạy khi confidence thấp và sẽ bỏ lọt đúng ca này.
     if safety.nhieu_nhom_khac_nhau(outcome.items):
+        return _refuse(outcome, RefusalReason.NHIEU_VAT)
+
+    # Model khai "nhiều món chồng lên nhau" NHƯNG không liệt kê món nào → không
+    # có gì để kiểm xem chúng có cùng nhóm hay không, nên không được đoán. Chặn
+    # **bất kể confidence**; trước 02/08 nhánh này nằm lọt bên trong
+    # `confidence < min_confidence` nên nhieu_vat kèm confidence 0,9 đi thẳng
+    # qua cả hai cửa.
+    #
+    # Có liệt kê thì để `nhieu_nhom_khac_nhau` ở trên phán: nhiều món CÙNG một
+    # nhóm vẫn trả lời bình thường — ba cái chai nhựa thì vẫn chỉ là nhựa tái
+    # chế, từ chối ở đó là khắt khe vô ích.
+    if quality_issue == RefusalReason.NHIEU_VAT.value and not outcome.items:
         return _refuse(outcome, RefusalReason.NHIEU_VAT)
 
     if outcome.confidence < outcome.min_confidence:

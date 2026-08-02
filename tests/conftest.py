@@ -85,13 +85,21 @@ def make_result(
     tokens_out: int = 60,
     cost_usd: float = 0.0018,
 ) -> VisionResult:
-    """Tạo nhanh một kết quả model giả lập."""
+    """Tạo nhanh một kết quả model giả lập.
+
+    ``items`` mặc định là **đúng một món khớp với chính nhãn vừa chọn** — đó là
+    hành vi của một model tuân thủ prompt, vốn bắt ``items`` không bao giờ rỗng
+    (xem ``_SYSTEM_PROMPT``). Muốn giả lập model KHÔNG tuân thủ để kiểm nhánh
+    leo tầng thì truyền thẳng ``items=[]``.
+    """
     return VisionResult(
         item_name=item_name,
         category_code=category_code,
         confidence=confidence,
         suspect_hazardous=suspect_hazardous,
         quality_issue=quality_issue,
-        items=items or [],
+        items=items if items is not None else [
+            {"name": item_name, "category_code": category_code, "confidence": confidence}
+        ],
         usage=Usage(tokens_in=tokens_in, tokens_out=tokens_out, cost_usd=cost_usd, price_known=True),
     )

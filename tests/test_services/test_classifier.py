@@ -501,3 +501,57 @@ def test_nhieu_mon_cung_mot_nhom_thi_van_tra_loi_binh_thuong(
 
     assert not outcome.refused
     assert outcome.category is not None and outcome.category.code == "recyclable_plastic"
+
+
+def test_t1_khong_liet_ke_mon_nao_thi_leo_len_t2(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ca thật gặp 02/08 — ảnh bàn làm việc lẫn chai nhựa, bình thuỷ tinh, khăn
+    giấy và một con chuột máy tính.
+
+    T1 trả về đúng một nhãn "chai nhựa" với confidence 0,93 và ``items`` rỗng.
+    Ba điều kiện leo tầng cũ đều im lặng vì **cả ba đều chờ model tự khai là
+    mình đang bối rối** — model nhìn kém thì cũng không biết mình cần nhờ model
+    mạnh hơn. Prompt bắt ``items`` không bao giờ rỗng, nên rỗng ở đây nghĩa là
+    model không tuân thủ, và đó tự nó là lý do đủ để hỏi lại.
+    """
+    day_du = [
+        {"name": "Chai nhựa PET", "category_code": "recyclable_plastic", "confidence": 0.9},
+        {"name": "Bình thuỷ tinh", "category_code": "recyclable_glass", "confidence": 0.8},
+        {"name": "Chuột máy tính", "category_code": "hazardous", "confidence": 0.7},
+    ]
+    _dung_model_gia(
+        monkeypatch,
+        make_result(category_code="recyclable_plastic", confidence=0.93, items=[]),
+        make_result(category_code="recyclable_plastic", confidence=0.88, items=day_du),
+    )
+
+    outcome = classify_waste(db_session, image_bytes=b"anh-ban-lam-viec", image_phash="1234abcd5678efab")
+
+    assert outcome.escalation_reason, "items rỗng phải là lý do leo tầng"
+    assert outcome.tier == "t2_full"
+    # T2 nhìn ra ba nhóm khác nhau → một nhãn duy nhất là câu trả lời sai.
+    assert outcome.refused
+    assert outcome.refusal_reason == "nhieu_vat"
+
+
+def test_khai_nhieu_vat_ma_khong_liet_ke_thi_tu_choi_du_confidence_cao(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Model nói "ảnh có nhiều món" nhưng không cho biết là những món gì.
+
+    Không có danh sách thì không kiểm được chúng có cùng nhóm hay không, nên
+    không được đoán — **bất kể confidence cao tới đâu**. Trước 02/08 nhánh này
+    nằm lọt bên trong ``confidence < min_confidence`` nên confidence 0,95 đi
+    thẳng qua cả hai cửa.
+    """
+    _dung_model_gia(
+        monkeypatch,
+        make_result(confidence=0.95, quality_issue="nhieu_vat", items=[]),
+        make_result(confidence=0.95, quality_issue="nhieu_vat", items=[]),
+    )
+
+    outcome = classify_waste(db_session, image_bytes=b"anh-lon-xon", image_phash="fedcba9876543210")
+
+    assert outcome.refused
+    assert outcome.refusal_reason == "nhieu_vat"

@@ -82,17 +82,23 @@ class VisionUnavailableError(RuntimeError):
 
 _SYSTEM_PROMPT = """Bạn là bộ phân loại rác cho một toà chung cư ở Việt Nam.
 
-Nhiệm vụ: nhìn ảnh (hoặc đọc mô tả) và chọn ĐÚNG MỘT mã nhóm rác trong danh sách được cấp.
+Nhiệm vụ gồm HAI bước, làm đủ cả hai:
+1. LIỆT KÊ mọi món có thể vứt bỏ mà bạn nhìn thấy vào mảng `items`.
+2. Chọn ĐÚNG MỘT mã nhóm cho món CHIẾM CHỦ ĐẠO, điền vào `category_code`.
 
 Quy tắc bắt buộc:
+- `items` KHÔNG BAO GIỜ được để rỗng. Ảnh chỉ có một món thì `items` có đúng một phần tử.
+  Ảnh có năm món thì `items` có năm phần tử. Đây là bước bắt buộc, không phải tuỳ chọn:
+  hệ thống dựa vào danh sách này để biết ảnh có lẫn nhiều nhóm rác hay không.
+- Đếm cả những món KHÔNG phải rác sinh hoạt: đồ điện tử (chuột, sạc, tai nghe), đồ đang
+  dùng, vật dụng cá nhân. Cứ liệt kê rồi gán nhóm gần nhất — bỏ sót nguy hiểm hơn thừa.
 - Chỉ được chọn mã có trong danh sách. Không tự bịa mã mới.
 - confidence là mức chắc chắn thật của bạn, từ 0 tới 1. Không chắc thì để thấp — hệ thống có
   cơ chế chuyển cho người xử lý, đoán bừa mới là hành vi nguy hiểm.
-- Nếu món có thể là pin, ắc quy, bóng đèn, thuốc, hoá chất, bình xịt, vật sắc nhọn y tế:
-  đặt suspect_hazardous = true, kể cả khi bạn không chắc.
+- Nếu món có thể là pin, ắc quy, bóng đèn, thuốc, hoá chất, bình xịt, vật sắc nhọn y tế,
+  hoặc THIẾT BỊ ĐIỆN TỬ: đặt suspect_hazardous = true, kể cả khi bạn không chắc.
 - Nếu ảnh tối, mờ, vật bị che hoặc có nhiều món chồng lên nhau: ghi vào quality_issue và
   hạ confidence xuống.
-- Nếu thấy nhiều món rác riêng biệt: liệt kê từng món trong items.
 - KHÔNG viết hướng dẫn xử lý, KHÔNG viết cảnh báo an toàn. Phần đó hệ thống lấy từ danh mục
   chuẩn của toà nhà, không lấy từ bạn.
 
@@ -105,7 +111,10 @@ Trả về DUY NHẤT một object JSON, không kèm giải thích, không kèm 
   "quality_issue": "" | "anh_toi" | "mo" | "vat_bi_che" | "nhieu_vat",
   "suspect_hazardous": false,
   "items": [{"name": "...", "category_code": "...", "confidence": 0.0}]
-}"""
+}
+
+`items` phải có ít nhất một phần tử. Trả về `items` rỗng bị coi là câu trả lời không dùng
+được và hệ thống sẽ hỏi lại bằng model khác."""
 
 
 def build_category_block(categories: list[CategoryOption]) -> str:

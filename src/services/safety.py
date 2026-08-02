@@ -188,12 +188,26 @@ def should_escalate_to_t2(
     min_confidence: float,
     suspect_hazardous: bool,
     quality_issue: str = "",
+    items: list[dict] | None = None,
+    co_anh: bool = True,
 ) -> str:
     """Có phải leo từ T1 lên T2 không, và vì lý do gì.
 
-    Ba điều kiện, đúng theo CLAUDE.md mục 4: **confidence thấp · nhiều vật ·
-    nghi rác nguy hại**. Hai điều kiện sau không phụ thuộc confidence — model
-    hoàn toàn có thể rất tự tin mà vẫn đang nhìn một đống rác lẫn lộn.
+    Ba điều kiện gốc theo CLAUDE.md mục 4: **confidence thấp · nhiều vật · nghi
+    rác nguy hại**. Hai điều kiện sau không phụ thuộc confidence — model hoàn
+    toàn có thể rất tự tin mà vẫn đang nhìn một đống rác lẫn lộn.
+
+    Điều kiện thứ tư thêm 02/08 sau khi đo thực tế: **model không liệt kê món
+    nào**. Đây không phải suy đoán về chất lượng ảnh mà là *model không tuân thủ
+    prompt* — prompt bắt `items` luôn có ít nhất một phần tử. Ca thật đã gặp:
+    ảnh một bàn làm việc có chai nhựa, bình thuỷ tinh, khăn giấy và một con
+    chuột máy tính, T1 trả về đúng một nhãn "chai nhựa" với confidence cao và
+    `items` rỗng. Cả ba điều kiện cũ đều im lặng, vì **cả ba đều phụ thuộc vào
+    việc model tự khai là mình đang bối rối** — model nhìn kém thì cũng không
+    biết mình cần nhờ model mạnh hơn nhìn hộ.
+
+    Chỉ áp dụng cho ảnh. Hỏi bằng chữ thì người dùng mô tả một món, `items` rỗng
+    là chuyện bình thường và leo tầng ở đó chỉ tốn tiền.
 
     Returns:
         Chuỗi lý do bằng tiếng Việt, hoặc chuỗi rỗng nếu không cần leo tầng.
@@ -202,6 +216,8 @@ def should_escalate_to_t2(
         return "Nghi rác nguy hại — luôn kiểm tra bằng model mạnh hơn"
     if quality_issue == RefusalReason.NHIEU_VAT.value:
         return "Ảnh có nhiều món rác — kiểm lại bằng model mạnh hơn"
+    if co_anh and not items:
+        return "Model không liệt kê món nào — không tuân thủ prompt, hỏi lại bằng model khác"
     if confidence < min_confidence:
         return f"Độ tin cậy {confidence:.2f} dưới ngưỡng {min_confidence:.2f} của nhóm"
     return ""

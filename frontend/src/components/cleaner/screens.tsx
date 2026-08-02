@@ -10,6 +10,18 @@ import { CaiAppCard } from "@/components/pwa/cai-app";
 import { Button, Card, EmptyState, ErrorState, Skeleton } from "@/components/ui/primitives";
 import { api } from "@/lib/api";
 import { doTinCay, gioVn, kg, ngayVn, soVn } from "@/lib/format";
+import {
+  IconCaKho,
+  IconCanhBao,
+  IconDoiVeSinh,
+  IconDuyet,
+  IconLichSuChuyen,
+  IconMonDo,
+  IconNhomRac,
+  IconTuChoi,
+  IconXeThuGom,
+  IconXongHet,
+} from "@/lib/icons";
 import type { Classification, PickupRoute, User, WasteCategory } from "@/lib/types";
 
 export function RouteTodayScreen() {
@@ -49,7 +61,7 @@ export function RouteTodayScreen() {
   if (!tuyen)
     return (
       <div className="min-h-full bg-crew-bg pt-16">
-        <EmptyState icon="🚛" title="Hôm nay chưa có tuyến nào" hint="Tuyến sẽ hiện ở đây sau khi ban quản lý duyệt." />
+        <EmptyState icon={IconXeThuGom} title="Hôm nay chưa có tuyến nào" hint="Tuyến sẽ hiện ở đây sau khi ban quản lý duyệt." />
       </div>
     );
 
@@ -99,15 +111,17 @@ export function RouteTodayScreen() {
               <div className="text-[13px] font-semibold text-muted">
                 {s.resident_name} · {s.phone_masked}
               </div>
-              <div className="mt-1 text-[13px] font-bold text-bulky-dark">
-                📦 {s.items.map((i) => `${i.qty > 1 ? `${i.qty} ` : ""}${i.name}`).join(", ")}
+              <div className="mt-1 flex items-start gap-1.5 text-[13px] font-bold text-bulky-dark">
+                <IconMonDo className="mt-0.5 h-4 w-4 flex-none" />
+                {s.items.map((i) => `${i.qty > 1 ? `${i.qty} ` : ""}${i.name}`).join(", ")}
               </div>
             </div>
           </div>
 
           {s.done_at ? (
-            <div className="rounded-xl bg-leaf-soft p-3 text-center text-sm font-extrabold text-leaf-dark">
-              ✓ Đã thu lúc {gioVn(s.done_at)}
+            <div className="flex items-center justify-center gap-1.5 rounded-xl bg-leaf-soft p-3 text-sm font-extrabold text-leaf-dark">
+              <IconDuyet className="h-4 w-4 flex-none" />
+              Đã thu lúc {gioVn(s.done_at)}
               {s.issue ? ` · ${s.issue}` : ""}
             </div>
           ) : dangMoBaoLoi === s.stop_id ? (
@@ -124,10 +138,12 @@ export function RouteTodayScreen() {
           ) : (
             <div className="flex gap-2.5">
               <Button variant="leaf" size="lg" className="flex-1" onClick={() => danhDau(s.stop_id)}>
-                ✓ ĐÃ THU
+                <IconDuyet className="h-5 w-5" strokeWidth={2.6} />
+                ĐÃ THU
               </Button>
               <Button variant="outline" size="lg" className="flex-1 border-amber-line text-amber" onClick={() => setDangMoBaoLoi(s.stop_id)}>
-                ⚠ Báo lỗi
+                <IconCanhBao className="h-5 w-5" />
+                Báo lỗi
               </Button>
             </div>
           )}
@@ -167,7 +183,10 @@ export function VerifyLabelScreen() {
 
       {du?.hard_cases?.length ? (
         <div className="mb-4 rounded-2xl border-[1.5px] border-amber-line bg-amber-soft p-3.5">
-          <div className="mb-2 text-xs font-extrabold text-amber">⚑ CA KHÓ HAY BỊ NHẦM</div>
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-extrabold text-amber">
+            <IconCaKho className="h-3.5 w-3.5" />
+            CA KHÓ HAY BỊ NHẦM
+          </div>
           <div className="text-xs font-bold leading-loose text-[#7a5c14]">
             {du.hard_cases.map((c) => (
               <div key={c.pair}>{c.pair}</div>
@@ -179,7 +198,7 @@ export function VerifyLabelScreen() {
       {!du ? (
         <Skeleton className="h-32 w-full" />
       ) : du.items.length === 0 ? (
-        <EmptyState icon="✅" title="Không còn ca nào chờ xác nhận" hint="Hàng đợi trống — hệ thống đang tự tin với các ca gần đây." />
+        <EmptyState icon={IconXongHet} title="Không còn ca nào chờ xác nhận" hint="Hàng đợi trống — hệ thống đang tự tin với các ca gần đây." />
       ) : (
         du.items.map((ca) => (
           <Card key={ca.classification_id} className="mb-3 p-4">
@@ -205,7 +224,8 @@ export function VerifyLabelScreen() {
               <div className="flex flex-col gap-2">
                 {danhMuc.map((dm) => (
                   <Button key={dm.code} size="lg" variant="outline" block onClick={() => xacNhan(ca.classification_id, dm.code)}>
-                    {dm.icon} {dm.name}
+                    <IconNhomRac code={dm.code} className="h-4 w-4" />
+                    {dm.name}
                   </Button>
                 ))}
                 <Button size="sm" variant="ghost" block onClick={() => setDangChon(null)}>
@@ -227,15 +247,27 @@ export function VerifyLabelScreen() {
 export function CleanerMeScreen({ user, onLogout }: { user: User; onLogout: () => void }) {
   return (
     <div className="flex min-h-full flex-col items-center justify-center bg-crew-bg px-4 pb-[108px] pt-[52px] text-center">
-      <div className="mb-3.5 flex h-16 w-16 items-center justify-center rounded-[20px] bg-recycle-soft text-2xl">🧹</div>
+      <div className="mb-3.5 flex h-16 w-16 items-center justify-center rounded-[20px] bg-recycle-soft text-recycle">
+        <IconDoiVeSinh className="h-7 w-7" strokeWidth={1.8} />
+      </div>
       <div className="mb-1.5 font-[family-name:var(--font-display)] text-[19px] font-bold">{user.full_name}</div>
       <div className="text-[13px] font-semibold text-muted">Tổ vệ sinh · Sunrise Residence</div>
       <div className="mt-5 w-full rounded-2xl bg-white p-4 text-left text-[13px] font-semibold leading-relaxed text-[#5a6b5f]">
         <div className="mb-2 text-xs font-bold text-muted">QUYỀN CỦA ĐỘI VỆ SINH</div>
-        ✓ Xem tuyến của mình · đánh dấu đã thu
-        <br />✓ Xác nhận nhãn ca nghi ngờ
-        <br />
-        <span className="text-[#b0b8ae]">✕ Duyệt yêu cầu thu gom · duyệt tuyến gộp · trang vận hành</span>
+        <div className="flex flex-col gap-1">
+          <span className="flex items-start gap-1.5">
+            <IconDuyet className="mt-0.5 h-3.5 w-3.5 flex-none text-leaf" />
+            Xem tuyến của mình · đánh dấu đã thu
+          </span>
+          <span className="flex items-start gap-1.5">
+            <IconDuyet className="mt-0.5 h-3.5 w-3.5 flex-none text-leaf" />
+            Xác nhận nhãn ca nghi ngờ
+          </span>
+          <span className="flex items-start gap-1.5 text-[#b0b8ae]">
+            <IconTuChoi className="mt-0.5 h-3.5 w-3.5 flex-none" />
+            Duyệt yêu cầu thu gom · duyệt tuyến gộp · trang vận hành
+          </span>
+        </div>
       </div>
       <div className="mt-3.5 w-full text-left">
         <CaiAppCard />
@@ -259,7 +291,7 @@ export function CleanerHistoryScreen() {
       {items === null ? (
         <Skeleton className="h-24 w-full" />
       ) : items.length === 0 ? (
-        <EmptyState icon="📋" title="Chưa có chuyến nào hoàn thành" />
+        <EmptyState icon={IconLichSuChuyen} title="Chưa có chuyến nào hoàn thành" />
       ) : (
         items.map((r) => (
           <Card key={r.id} className="mb-3 p-4">

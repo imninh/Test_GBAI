@@ -25,6 +25,7 @@ import { HazardResultScreen, ResultScreen, UnsureScreen } from "@/components/res
 import { Button, ErrorState, Skeleton } from "@/components/ui/primitives";
 import { PhoneFrame, TabBar, type TabItem } from "@/components/ui/shell";
 import { api, ApiError } from "@/lib/api";
+import { IconManHinhRong } from "@/lib/icons";
 import { laAppNative } from "@/lib/platform";
 import { SessionProvider, useSession } from "@/lib/session";
 import type { Classification } from "@/lib/types";
@@ -73,7 +74,9 @@ function ManagerTrenAppScreen() {
   return (
     <PhoneFrame>
       <div className="flex min-h-full flex-col items-center justify-center bg-cream px-7 pb-10 pt-14 text-center">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#ece7f6] text-2xl">🖥️</div>
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#ece7f6] text-bulky-dark">
+          <IconManHinhRong className="h-7 w-7" strokeWidth={1.8} />
+        </div>
         <h1 className="mb-2.5 font-[family-name:var(--font-display)] text-[26px] font-bold leading-tight">
           Console ban quản lý dùng trên máy tính
         </h1>

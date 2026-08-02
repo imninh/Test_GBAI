@@ -12,6 +12,7 @@ import * as React from "react";
 
 import { Button } from "@/components/ui/primitives";
 import { api } from "@/lib/api";
+import { IconChao, IconTiepTuc } from "@/lib/icons";
 import { useSession } from "@/lib/session";
 
 /** Ba tư thế, map đúng ba tình huống trong luồng cư dân. */
@@ -153,7 +154,10 @@ export function LoginScreen() {
           <path d="M9 8V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
         </svg>
       </div>
-      <h1 className="mb-1.5 font-[family-name:var(--font-display)] text-[34px] font-bold leading-none tracking-tight">Chào bạn 👋</h1>
+      <h1 className="mb-1.5 flex items-center gap-2.5 font-[family-name:var(--font-display)] text-[34px] font-bold leading-none tracking-tight">
+        Chào bạn
+        <IconChao className="h-7 w-7 text-leaf" />
+      </h1>
       <p className="mb-6 text-[15px] font-semibold leading-snug text-[#5a6b5f]">Chụp ảnh — biết ngay bỏ vào thùng nào.</p>
 
       <input
@@ -202,9 +206,7 @@ export function LoginScreen() {
               </span>
               <span className="block text-xs font-semibold text-muted">{tk.description}</span>
             </span>
-            <span className="text-lg font-bold" style={{ color: mau.fg }}>
-              ›
-            </span>
+            <IconTiepTuc className="h-[18px] w-[18px]" style={{ color: mau.fg }} />
           </button>
         );
       })}

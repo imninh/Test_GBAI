@@ -16,6 +16,7 @@ import { Button, Card } from "@/components/ui/primitives";
 import { ScreenHeader } from "@/components/ui/shell";
 import { api } from "@/lib/api";
 import { kg, ngayVn } from "@/lib/format";
+import { IconAi, IconChoDuyet, IconDuyet, IconQuayLai, IconTuChoi, IconXeThuGom } from "@/lib/icons";
 import type { Classification, PickupRequest, ScheduleHint } from "@/lib/types";
 
 interface MonRac {
@@ -113,9 +114,10 @@ export function PickupWizard({
       <div className="flex items-center gap-3 px-[18px] pb-3.5 pt-1.5">
         <button
           onClick={() => (buoc === 1 ? onBack() : setBuoc((b) => b - 1))}
-          className="flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-full bg-white text-lg font-bold shadow-[0_2px_8px_rgba(20,40,25,.08)]"
+          className="flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-full bg-white shadow-[0_2px_8px_rgba(20,40,25,.08)]"
+          aria-label="Quay lại bước trước"
         >
-          ‹
+          <IconQuayLai className="h-5 w-5" />
         </button>
         <div className="flex flex-1 gap-1.5">
           {[1, 2, 3].map((b) => (
@@ -156,11 +158,18 @@ export function PickupWizard({
                     />
                     <span className="text-[11px] font-bold text-[#8a7a5a]">kg</span>
                   </div>
-                  <div className="text-[11px] font-bold text-[#b58a2a]">✦ AI ước lượng — kiểm tra lại giúp mình</div>
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#b58a2a]">
+                    <IconAi className="h-3.5 w-3.5" />
+                    AI ước lượng — kiểm tra lại giúp mình
+                  </div>
                 </div>
                 {mon.length > 1 && (
-                  <button onClick={() => setMon((cu) => cu.filter((_, j) => j !== i))} className="cursor-pointer text-muted">
-                    ✕
+                  <button
+                    onClick={() => setMon((cu) => cu.filter((_, j) => j !== i))}
+                    className="cursor-pointer text-muted"
+                    aria-label={`Bỏ món ${m.name}`}
+                  >
+                    <IconTuChoi className="h-4 w-4" />
                   </button>
                 )}
               </Card>
@@ -203,13 +212,16 @@ export function PickupWizard({
                       {ngayVn(k.ngay)} · {k.window}
                     </span>
                     {dangChon && (
-                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-leaf text-[13px] font-extrabold text-white">
-                        ✓
+                      <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-leaf text-white">
+                        <IconDuyet className="h-3.5 w-3.5" strokeWidth={3} />
                       </span>
                     )}
                   </div>
                   {k.daCoChuyen && (
-                    <div className="mt-2 flex items-center gap-1.5 text-xs font-bold text-leaf-dark">🚛 {k.ghiChu}</div>
+                    <div className="mt-2 flex items-center gap-1.5 text-xs font-bold text-leaf-dark">
+                      <IconXeThuGom className="h-4 w-4 flex-none" />
+                      {k.ghiChu}
+                    </div>
                   )}
                 </button>
               );
@@ -236,7 +248,7 @@ export function PickupWizard({
             {vuotNguong && (
               <div className="mb-3 rounded-2xl border-[1.5px] border-amber-line bg-amber-soft p-4">
                 <div className="flex gap-2.5">
-                  <span className="text-lg">⏳</span>
+                  <IconChoDuyet className="mt-0.5 h-[18px] w-[18px] flex-none text-amber" />
                   <div>
                     <div className="mb-1 text-sm font-extrabold text-amber">Cần ban quản lý duyệt</div>
                     <div className="text-[13px] font-semibold leading-relaxed text-[#7a5c14]">
@@ -260,8 +272,8 @@ export function PickupWizard({
         {buoc === 4 && ketQua && (
           <>
             <div className="py-6 text-center">
-              <div className="mx-auto mb-4 flex h-[74px] w-[74px] items-center justify-center rounded-full bg-leaf-soft text-4xl text-leaf">
-                ✓
+              <div className="mx-auto mb-4 flex h-[74px] w-[74px] items-center justify-center rounded-full bg-leaf-soft text-leaf">
+                <IconDuyet className="h-9 w-9" strokeWidth={2.6} />
               </div>
               <h1 className="m-0 mb-1 font-[family-name:var(--font-display)] text-[25px] font-bold">Đã gửi yêu cầu!</h1>
               <div className="mb-4 text-[15px] font-extrabold text-bulky">#PR-{String(ketQua.id).padStart(4, "0")}</div>
@@ -269,8 +281,8 @@ export function PickupWizard({
             <Card className="p-4">
               {(ketQua.timeline ?? []).map((moc, i) => (
                 <div key={i} className="mb-3.5 flex gap-3 last:mb-0">
-                  <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-leaf text-xs font-extrabold text-white">
-                    ✓
+                  <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-leaf text-white">
+                    <IconDuyet className="h-3 w-3" strokeWidth={3} />
                   </span>
                   <div className="text-[13px] font-bold">
                     <span className="font-semibold text-muted">{new Date(moc.at).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })} · </span>
@@ -280,8 +292,8 @@ export function PickupWizard({
               ))}
               {ketQua.status === "pending" && (
                 <div className="flex gap-3">
-                  <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-amber-line text-xs font-extrabold text-amber">
-                    ⏳
+                  <span className="flex h-[22px] w-[22px] flex-none items-center justify-center rounded-full bg-amber-line text-amber">
+                    <IconChoDuyet className="h-3 w-3" />
                   </span>
                   <div className="text-[13px] font-bold text-amber">Chờ ban quản lý duyệt</div>
                 </div>

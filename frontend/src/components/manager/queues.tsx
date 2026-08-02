@@ -11,6 +11,20 @@ import * as React from "react";
 import { Button, Card, Chip, EmptyState, ErrorState, Skeleton } from "@/components/ui/primitives";
 import { api } from "@/lib/api";
 import { doTinCay, kg, ngayGioVn, ngayVn, soVn } from "@/lib/format";
+import {
+  IconAi,
+  IconCaKho,
+  IconCanhBao,
+  IconChucMung,
+  IconDuyet,
+  IconHoanTac,
+  IconLamLai,
+  IconNhomRac,
+  IconSua,
+  IconTuChoi,
+  IconXeThuGom,
+  IconXongHet,
+} from "@/lib/icons";
 import type { Classification, PickupRequest, PickupRoute, WasteCategory } from "@/lib/types";
 
 export function PickupQueue() {
@@ -56,7 +70,7 @@ export function PickupQueue() {
       </div>
 
       {ds.length === 0 ? (
-        <EmptyState icon="🎉" title="Chưa có yêu cầu nào cần duyệt hôm nay" />
+        <EmptyState icon={IconChucMung} title="Chưa có yêu cầu nào cần duyệt hôm nay" />
       ) : (
         <div className="grid items-start gap-4" style={{ gridTemplateColumns: "300px 1fr" }}>
           <div>
@@ -105,7 +119,10 @@ export function PickupQueue() {
                         <span className="font-semibold text-muted">
                           {t.threshold ? `(ngưỡng ${t.threshold})` : "(luôn cần duyệt)"}
                         </span>{" "}
-                        <span className="text-hazard-dark">⚠ vượt</span>
+                        <span className="inline-flex items-center gap-1 text-hazard-dark">
+                          <IconCanhBao className="h-3.5 w-3.5" />
+                          vượt
+                        </span>
                       </span>
                     </div>
                   ))}
@@ -144,7 +161,10 @@ export function PickupQueue() {
 
                 {dangChon.agent_suggestion && (
                   <div className="rounded-xl border-[1.5px] border-dashed border-[#cbb8ee] bg-[#faf8fe] p-3.5">
-                    <div className="mb-1.5 text-[11px] font-extrabold text-bulky">✦ {dangChon.agent_suggestion.label_vi}</div>
+                    <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-extrabold text-bulky">
+                      <IconAi className="h-3.5 w-3.5" />
+                      {dangChon.agent_suggestion.label_vi}
+                    </div>
                     <div className="text-[13px] font-semibold leading-relaxed text-ink-soft">
                       {dangChon.agent_suggestion.text_vi}
                     </div>
@@ -154,11 +174,13 @@ export function PickupQueue() {
 
               <div className="flex flex-wrap items-center gap-2.5 border-t border-[#f2ede2] bg-cream-soft px-5 py-3.5">
                 <Button variant="leaf" onClick={() => duyet("approve")}>
-                  ✓ Duyệt
+                  <IconDuyet className="h-4 w-4" />
+                  Duyệt
                 </Button>
                 <span className="flex-1" />
                 <Button variant="danger" onClick={() => setMoTuChoi((v) => !v)}>
-                  ✕ Từ chối
+                  <IconTuChoi className="h-4 w-4" />
+                  Từ chối
                 </Button>
               </div>
 
@@ -210,7 +232,10 @@ export function VerifyQueue() {
 
       {du.hard_cases?.length ? (
         <div className="mb-4 rounded-2xl border border-amber-line bg-amber-soft px-4 py-3.5">
-          <div className="mb-2 text-[11px] font-extrabold text-amber">⚑ CA KHÓ HAY BỊ NHẦM (từ eval)</div>
+          <div className="mb-2 flex items-center gap-1.5 text-[11px] font-extrabold text-amber">
+            <IconCaKho className="h-3.5 w-3.5" />
+            CA KHÓ HAY BỊ NHẦM (từ eval)
+          </div>
           <div className="flex flex-wrap gap-2 text-xs font-bold text-[#7a5c14]">
             {du.hard_cases.map((c) => (
               <span key={c.pair} className="rounded-lg bg-white px-2.5 py-1.5" title={c.note}>
@@ -222,7 +247,7 @@ export function VerifyQueue() {
       ) : null}
 
       {du.items.length === 0 ? (
-        <EmptyState icon="✅" title="Hàng đợi trống" hint="Không có ca nào đang chờ người xác nhận." />
+        <EmptyState icon={IconXongHet} title="Hàng đợi trống" hint="Không có ca nào đang chờ người xác nhận." />
       ) : (
         <div className="grid grid-cols-2 gap-3.5">
           {du.items.map((ca: Classification) => (
@@ -247,7 +272,8 @@ export function VerifyQueue() {
                         tai();
                       }}
                     >
-                      {dm.icon} {dm.name}
+                      <IconNhomRac code={dm.code} className="h-3.5 w-3.5" />
+                      {dm.name}
                     </Button>
                   ))}
                 </div>
@@ -306,7 +332,7 @@ export function RouteApproval() {
 
       {!tuyen ? (
         <EmptyState
-          icon="🚛"
+          icon={IconXeThuGom}
           title="Chưa có tuyến nào chờ duyệt"
           hint="Agent sẽ đề xuất tuyến khi có đủ yêu cầu đã duyệt cùng ngày và cùng khung giờ."
         />
@@ -350,8 +376,9 @@ export function RouteApproval() {
                       onClick={() => setBoBot((cu) => (daBo ? cu.filter((x) => x !== s.request_id) : [...cu, s.request_id]))}
                       className="cursor-pointer text-muted"
                       title={daBo ? "Giữ lại điểm này" : "Bỏ khỏi tuyến"}
+                      aria-label={daBo ? `Giữ lại điểm ${s.unit}` : `Bỏ điểm ${s.unit} khỏi tuyến`}
                     >
-                      {daBo ? "↺" : "✕"}
+                      {daBo ? <IconHoanTac className="h-4 w-4" /> : <IconTuChoi className="h-4 w-4" />}
                     </button>
                   </div>
                 );
@@ -360,7 +387,10 @@ export function RouteApproval() {
 
             <div>
               <div className="mb-3.5 rounded-2xl border-[1.5px] border-dashed border-[#cbb8ee] bg-[#faf8fe] p-4">
-                <div className="mb-2.5 text-[11px] font-extrabold text-bulky">✦ AI GIẢI THÍCH — VÌ SAO GỘP THẾ NÀY</div>
+                <div className="mb-2.5 flex items-center gap-1.5 text-[11px] font-extrabold text-bulky">
+                  <IconAi className="h-3.5 w-3.5" />
+                  AI GIẢI THÍCH — VÌ SAO GỘP THẾ NÀY
+                </div>
                 <div className="text-xs font-semibold leading-loose text-ink-soft">
                   Tiêu chí gộp:
                   <br />
@@ -428,13 +458,16 @@ export function RouteApproval() {
 
           <div className="mt-4 flex flex-wrap gap-2.5">
             <Button variant="leaf" onClick={() => duyet("approve")} disabled={boBot.length > 0}>
-              ✓ Duyệt tuyến
+              <IconDuyet className="h-4 w-4" />
+              Duyệt tuyến
             </Button>
             <Button variant="outline" disabled={boBot.length === 0} onClick={() => duyet("approve_with_changes")}>
-              ✏️ Sửa rồi duyệt ({boBot.length} điểm bị bỏ)
+              <IconSua className="h-4 w-4" />
+              Sửa rồi duyệt ({boBot.length} điểm bị bỏ)
             </Button>
             <Button variant="outline" onClick={() => duyet("regenerate")}>
-              🔄 Đề xuất lại
+              <IconLamLai className="h-4 w-4" />
+              Đề xuất lại
             </Button>
             <span className="flex-1" />
             <Button variant="danger" onClick={() => duyet("cancel")}>

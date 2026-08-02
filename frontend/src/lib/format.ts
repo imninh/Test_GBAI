@@ -2,6 +2,10 @@
  *  dấu phẩy là dấu thập phân, dấu chấm phân tách hàng nghìn.
  */
 
+import type { LucideIcon } from "lucide-react";
+
+import { IconCam, IconChoDuyet, IconDuyet, IconTuChoi, IconXeThuGom } from "@/lib/icons";
+
 export function soVn(value: number, digits = 0): string {
   return value.toLocaleString("vi-VN", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
@@ -58,14 +62,15 @@ export function conBaoLau(iso: string): string {
 }
 
 /** Nhãn trạng thái yêu cầu thu gom — màu KHÔNG được là kênh thông tin duy nhất,
- *  nên mỗi trạng thái đều có icon riêng đi kèm. */
-export const TRANG_THAI_YEU_CAU: Record<string, { label: string; icon: string; className: string }> = {
-  pending: { label: "Chờ duyệt", icon: "⏳", className: "bg-amber-soft text-amber" },
-  approved: { label: "Đã duyệt", icon: "✓", className: "bg-leaf-soft text-leaf-dark" },
-  rejected: { label: "Bị từ chối", icon: "✕", className: "bg-[#eef1ec] text-muted-2" },
-  scheduled: { label: "Đã xếp tuyến", icon: "🚛", className: "bg-recycle-soft text-recycle" },
-  done: { label: "Đã thu xong", icon: "✓", className: "bg-[#eef1ec] text-muted-2" },
-  cancelled: { label: "Đã huỷ", icon: "—", className: "bg-[#eef1ec] text-muted line-through" },
+ *  nên mỗi trạng thái đều có icon riêng đi kèm. Icon lấy từ `@/lib/icons` để cả
+ *  app dùng chung một bộ, không phải mỗi màn một kiểu ký hiệu. */
+export const TRANG_THAI_YEU_CAU: Record<string, { label: string; icon: LucideIcon; className: string }> = {
+  pending: { label: "Chờ duyệt", icon: IconChoDuyet, className: "bg-amber-soft text-amber" },
+  approved: { label: "Đã duyệt", icon: IconDuyet, className: "bg-leaf-soft text-leaf-dark" },
+  rejected: { label: "Bị từ chối", icon: IconTuChoi, className: "bg-[#eef1ec] text-muted-2" },
+  scheduled: { label: "Đã xếp tuyến", icon: IconXeThuGom, className: "bg-recycle-soft text-recycle" },
+  done: { label: "Đã thu xong", icon: IconDuyet, className: "bg-[#eef1ec] text-muted-2" },
+  cancelled: { label: "Đã huỷ", icon: IconCam, className: "bg-[#eef1ec] text-muted line-through" },
 };
 
 export const TRANG_THAI_TUYEN: Record<string, { label: string; className: string }> = {

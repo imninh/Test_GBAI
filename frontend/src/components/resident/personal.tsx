@@ -9,6 +9,21 @@ import { Button, Card, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { ScreenHeader } from "@/components/ui/shell";
 import { api, mediaUrl } from "@/lib/api";
 import { dungLuong, kg, ngayVn, TRANG_THAI_YEU_CAU } from "@/lib/format";
+import {
+  IconChoDuyet,
+  IconDuyet,
+  IconGapLoi,
+  IconKhoa,
+  IconLichThuGom,
+  IconMamXanh,
+  IconMonDo,
+  IconNguoiDung,
+  IconTiepTuc,
+  IconToaNha,
+  IconTuChoi,
+  IconTuXoa,
+  IconXeThuGom,
+} from "@/lib/icons";
 import type { PickupRequest, PrivacyReport, User } from "@/lib/types";
 
 export function PrivacyScreen({ mediaId, onBack }: { mediaId: number; onBack: () => void }) {
@@ -61,14 +76,24 @@ export function PrivacyScreen({ mediaId, onBack }: { mediaId: number; onBack: ()
                 <div key={truong.field} className="flex items-center border-b border-[#f2ede2] px-4 py-2.5 text-[13px] font-semibold">
                   <span className="flex-[1.4] text-ink-soft">{truong.label_vi}</span>
                   <span className="flex-1 truncate text-muted-2">{truong.value_before}</span>
-                  <span className="flex-1 text-right font-extrabold text-hazard-dark">❌ đã xoá</span>
+                  <span className="flex flex-1 items-center justify-end gap-1.5 font-extrabold text-hazard-dark">
+                    <IconTuChoi className="h-3.5 w-3.5" />
+                    đã xoá
+                  </span>
                 </div>
               ))}
               <div className="flex items-center border-b border-[#f2ede2] px-4 py-2.5 text-[13px] font-semibold">
                 <span className="flex-[1.4] text-ink-soft">Khuôn mặt</span>
                 <span className="flex-1 text-muted-2">{bao.faces_blurred} khuôn mặt</span>
-                <span className="flex-1 text-right font-extrabold text-leaf-dark">
-                  {bao.faces_blurred > 0 ? "✅ đã làm mờ" : "không có"}
+                <span className="flex flex-1 items-center justify-end gap-1.5 font-extrabold text-leaf-dark">
+                  {bao.faces_blurred > 0 ? (
+                    <>
+                      <IconDuyet className="h-3.5 w-3.5" />
+                      đã làm mờ
+                    </>
+                  ) : (
+                    "không có"
+                  )}
                 </span>
               </div>
               <div className="flex items-center px-4 py-2.5 text-[13px] font-semibold">
@@ -83,7 +108,8 @@ export function PrivacyScreen({ mediaId, onBack }: { mediaId: number; onBack: ()
             </Card>
 
             <div className="mx-0.5 my-3.5 flex items-center gap-2 text-xs font-bold text-muted">
-              🕒 Ảnh này sẽ tự động xoá {bao.expires_at ? `sau ${ngayVn(bao.expires_at)}` : "theo hạn lưu trữ"}.
+              <IconTuXoa className="h-4 w-4 flex-none" />
+              Ảnh này sẽ tự động xoá {bao.expires_at ? `sau ${ngayVn(bao.expires_at)}` : "theo hạn lưu trữ"}.
             </div>
             <Button
               block
@@ -120,9 +146,9 @@ export function ScheduleScreen({ buildingId, buildingName }: { buildingId: numbe
       <p className="m-0 mb-4 text-[13px] font-semibold text-muted">{buildingName} · xem được cả khi không có mạng</p>
 
       {!buildingId ? (
-        <EmptyState icon="🏢" title="Tài khoản chưa gắn với toà nào" hint="Liên hệ ban quản lý để gắn căn hộ." />
+        <EmptyState icon={IconToaNha} title="Tài khoản chưa gắn với toà nào" hint="Liên hệ ban quản lý để gắn căn hộ." />
       ) : loi ? (
-        <EmptyState icon="📅" title="Chưa tải được lịch" hint={loi} />
+        <EmptyState icon={IconLichThuGom} title="Chưa tải được lịch" hint={loi} />
       ) : !lich ? (
         <Skeleton className="h-52 w-full" />
       ) : (
@@ -184,7 +210,7 @@ export function RequestsScreen({ onOpen }: { onOpen: (id: number) => void }) {
       {items === null ? (
         <Skeleton className="h-24 w-full" />
       ) : items.length === 0 ? (
-        <EmptyState icon="📦" title="Chưa có yêu cầu nào" hint="Chụp món rác đầu tiên để bắt đầu nhé." />
+        <EmptyState icon={IconMonDo} title="Chưa có yêu cầu nào" hint="Chụp món rác đầu tiên để bắt đầu nhé." />
       ) : (
         items.map((yc) => {
           const tt = TRANG_THAI_YEU_CAU[yc.status];
@@ -192,8 +218,9 @@ export function RequestsScreen({ onOpen }: { onOpen: (id: number) => void }) {
             <Card key={yc.id} onClick={() => onOpen(yc.id)} className="mb-3 cursor-pointer p-4">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm font-extrabold text-bulky">#PR-{String(yc.id).padStart(4, "0")}</span>
-                <span className={`rounded-full px-3 py-1 text-xs font-extrabold ${tt.className}`}>
-                  {tt.icon} {tt.label}
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-extrabold ${tt.className}`}>
+                  <tt.icon className="h-3.5 w-3.5" />
+                  {tt.label}
                 </span>
               </div>
               <div className="mb-1 text-[15px] font-bold">{yc.items.map((i) => i.name).join(", ")}</div>
@@ -218,7 +245,7 @@ export function RequestDetailScreen({ id, onBack }: { id: number; onBack: () => 
   }, [id]);
   React.useEffect(tai, [tai]);
 
-  if (loi) return <EmptyState icon="😕" title="Không mở được yêu cầu" hint={loi} />;
+  if (loi) return <EmptyState icon={IconGapLoi} title="Không mở được yêu cầu" hint={loi} />;
   if (!yc) return <Skeleton className="m-4 h-64" />;
 
   const tt = TRANG_THAI_YEU_CAU[yc.status];
@@ -231,16 +258,17 @@ export function RequestDetailScreen({ id, onBack }: { id: number; onBack: () => 
           <h1 className="m-0 font-[family-name:var(--font-display)] text-[22px] font-bold">
             {yc.items.map((i) => i.name).join(", ")}
           </h1>
-          <span className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${tt.className}`}>
-            {tt.icon} {tt.label}
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-extrabold ${tt.className}`}>
+            <tt.icon className="h-3.5 w-3.5" />
+            {tt.label}
           </span>
         </div>
 
         <Card className="p-4">
           {(yc.timeline ?? []).map((moc, i) => (
             <div key={i} className="flex items-start gap-3 pb-4 last:pb-0">
-              <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-leaf text-xs font-extrabold text-white">
-                ✓
+              <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-leaf text-white">
+                <IconDuyet className="h-3.5 w-3.5" strokeWidth={3} />
               </span>
               <div className="flex-1">
                 <div className="text-xs font-extrabold text-muted">{new Date(moc.at).toLocaleString("vi-VN")}</div>
@@ -250,8 +278,8 @@ export function RequestDetailScreen({ id, onBack }: { id: number; onBack: () => 
           ))}
           {yc.status === "pending" && (
             <div className="flex items-start gap-3">
-              <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-amber-line text-xs font-extrabold text-amber">
-                ⏳
+              <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-amber-line text-amber">
+                <IconChoDuyet className="h-3.5 w-3.5" />
               </span>
               <div className="text-sm font-bold text-amber">Chờ ban quản lý duyệt</div>
             </div>
@@ -260,7 +288,7 @@ export function RequestDetailScreen({ id, onBack }: { id: number; onBack: () => 
 
         {yc.route && (
           <div className="mt-3 flex gap-2.5 rounded-2xl bg-leaf-soft p-4 text-[13px] font-bold leading-relaxed text-leaf-dark">
-            <span>🚛</span>
+            <IconXeThuGom className="h-4 w-4 flex-none" />
             Yêu cầu của bạn đi cùng chuyến với {Math.max(0, yc.route.stop_count - 1)} hộ khác trong toà — giảm{" "}
             {yc.route.saved_trips} chuyến xe.
           </div>
@@ -292,7 +320,9 @@ export function MeScreen({ user, onPrivacy, onLogout }: { user: User; onPrivacy:
   return (
     <div className="min-h-full bg-cream px-[18px] pb-[108px] pt-[54px]">
       <div className="mb-5 flex items-center gap-3.5">
-        <div className="flex h-[60px] w-[60px] items-center justify-center rounded-[20px] bg-leaf-soft text-2xl">👤</div>
+        <div className="flex h-[60px] w-[60px] items-center justify-center rounded-[20px] bg-leaf-soft text-leaf-dark">
+          <IconNguoiDung className="h-7 w-7" strokeWidth={1.8} />
+        </div>
         <div>
           <div className="font-[family-name:var(--font-display)] text-xl font-bold">{user.full_name}</div>
           <div className="text-[13px] font-semibold text-muted">
@@ -304,12 +334,12 @@ export function MeScreen({ user, onPrivacy, onLogout }: { user: User; onPrivacy:
 
       <Card className="mb-3.5 overflow-hidden p-0">
         <button onClick={onPrivacy} className="flex w-full cursor-pointer items-center gap-3 border-b border-[#f2ede2] px-4 py-4 text-left">
-          <span className="text-lg">🔒</span>
+          <IconKhoa className="h-[18px] w-[18px] text-muted" />
           <span className="flex-1 text-sm font-bold">Ảnh của tôi được xử lý thế nào</span>
-          <span className="text-base font-bold text-[#c3cbc2]">›</span>
+          <IconTiepTuc className="h-[18px] w-[18px] text-[#c3cbc2]" />
         </button>
         <div className="flex items-center gap-3 px-4 py-4">
-          <span className="text-lg">🌱</span>
+          <IconMamXanh className="h-[18px] w-[18px] text-leaf" />
           <span className="flex-1 text-sm font-bold">Điểm xanh</span>
           <span className="text-sm font-extrabold text-leaf-dark">{user.green_points}</span>
         </div>
@@ -319,11 +349,19 @@ export function MeScreen({ user, onPrivacy, onLogout }: { user: User; onPrivacy:
 
       <div className="mb-3.5 rounded-2xl bg-[#eef1ec] p-4">
         <div className="mb-2 text-xs font-bold text-muted">QUYỀN CỦA CƯ DÂN</div>
-        <div className="text-[13px] font-semibold leading-relaxed text-[#5a6b5f]">
-          ✓ Hỏi phân loại · đăng ký thu gom
-          <br />✓ Xem yêu cầu của chính mình
-          <br />
-          <span className="text-[#b0b8ae]">✕ Duyệt yêu cầu · xem ảnh cư dân khác · trang vận hành</span>
+        <div className="flex flex-col gap-1 text-[13px] font-semibold leading-relaxed text-[#5a6b5f]">
+          <span className="flex items-start gap-1.5">
+            <IconDuyet className="mt-0.5 h-3.5 w-3.5 flex-none text-leaf" />
+            Hỏi phân loại · đăng ký thu gom
+          </span>
+          <span className="flex items-start gap-1.5">
+            <IconDuyet className="mt-0.5 h-3.5 w-3.5 flex-none text-leaf" />
+            Xem yêu cầu của chính mình
+          </span>
+          <span className="flex items-start gap-1.5 text-[#b0b8ae]">
+            <IconTuChoi className="mt-0.5 h-3.5 w-3.5 flex-none" />
+            Duyệt yêu cầu · xem ảnh cư dân khác · trang vận hành
+          </span>
         </div>
       </div>
 

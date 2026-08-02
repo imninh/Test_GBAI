@@ -6,8 +6,10 @@
 
 import { cva, type VariantProps } from "class-variance-authority";
 import { Slot } from "@radix-ui/react-slot";
+import type { LucideIcon } from "lucide-react";
 import * as React from "react";
 
+import { IconCanhBao, IconGapLoi, IconMamXanh } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -84,19 +86,19 @@ export function Skeleton({ className }: { className?: string }) {
 
 /** Trạng thái rỗng — phân biệt "chưa có gì bao giờ" với "không có kết quả sau lọc". */
 export function EmptyState({
-  icon = "🌱",
+  icon: Icon = IconMamXanh,
   title,
   hint,
   action,
 }: {
-  icon?: string;
+  icon?: LucideIcon;
   title: string;
   hint?: string;
   action?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
-      <div className="text-3xl">{icon}</div>
+      <Icon className="h-8 w-8 text-muted" strokeWidth={1.8} />
       <div className="font-[family-name:var(--font-display)] text-lg font-bold">{title}</div>
       {hint && <p className="max-w-xs text-[13px] font-semibold text-muted">{hint}</p>}
       {action}
@@ -108,7 +110,7 @@ export function EmptyState({
 export function ErrorState({ message, code, onRetry }: { message: string; code?: string; onRetry?: () => void }) {
   return (
     <div className="flex flex-col items-center gap-3 rounded-2xl border border-[#f6cdb8] bg-hazard-soft px-6 py-8 text-center">
-      <div className="text-2xl">😕</div>
+      <IconGapLoi className="h-7 w-7 text-hazard-dark" strokeWidth={1.8} />
       <div className="text-sm font-bold text-hazard-dark">{message}</div>
       {onRetry && (
         <Button variant="outline" size="sm" onClick={onRetry}>
@@ -124,7 +126,7 @@ export function ErrorState({ message, code, onRetry }: { message: string; code?:
 export function DegradedBanner({ note }: { note: string }) {
   return (
     <div className="flex gap-2 rounded-2xl border border-amber-line bg-amber-soft px-4 py-3 text-[13px] font-bold leading-relaxed text-amber">
-      <span>⚠</span>
+      <IconCanhBao className="mt-0.5 h-4 w-4 flex-none" />
       <span>{note}</span>
     </div>
   );

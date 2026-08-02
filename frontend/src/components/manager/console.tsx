@@ -13,6 +13,7 @@ import { AgentRunScreen, OpsScreen, OverviewScreen, QualityScreen } from "@/comp
 import { PickupQueue, RouteApproval, VerifyQueue } from "@/components/manager/queues";
 import { BrowserFrame } from "@/components/ui/shell";
 import { api } from "@/lib/api";
+import { IconKhoa } from "@/lib/icons";
 import { useSession } from "@/lib/session";
 
 type Nav = "overview" | "pickup" | "verify" | "route" | "runs" | "ops" | "quality";
@@ -138,7 +139,7 @@ function NavButton({
     >
       {muc.label}
       <span className="flex-1" />
-      {!allowed && <span className="text-[11px]">🔒</span>}
+      {!allowed && <IconKhoa className="h-3.5 w-3.5" />}
       {allowed && badge ? (
         <span className="rounded-md bg-hazard px-2 py-0.5 text-[11px] font-extrabold text-white">{badge}</span>
       ) : null}

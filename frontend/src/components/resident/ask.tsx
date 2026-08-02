@@ -12,6 +12,7 @@ import * as React from "react";
 
 import { Mascot } from "@/components/resident/onboarding";
 import { Button } from "@/components/ui/primitives";
+import { IconChonAnh, IconDuyet, IconMoTaChu } from "@/lib/icons";
 import { chonAnh, chupAnh } from "@/lib/platform";
 import type { Classification } from "@/lib/types";
 
@@ -88,10 +89,12 @@ export function AskScreen({
 
       <div className="mt-2.5 flex gap-2.5">
         <Button variant="outline" className="flex-1 rounded-2xl border-leaf-soft" onClick={() => layAnh("thu-vien")}>
-          🖼 Chọn ảnh
+          <IconChonAnh className="h-4 w-4" />
+          Chọn ảnh
         </Button>
         <Button variant="outline" className="flex-1 rounded-2xl border-leaf-soft" onClick={() => setDangGoMoTa((v) => !v)}>
-          ✍️ Mô tả chữ
+          <IconMoTaChu className="h-4 w-4" />
+          Mô tả chữ
         </Button>
       </div>
 
@@ -174,7 +177,9 @@ export function ProcessingScreen({
             <div key={step.label} className="flex items-center gap-3.5" style={{ opacity: xong || dangChay ? 1 : 0.35 }}>
               <span className="flex h-[26px] w-[26px] flex-none items-center justify-center">
                 {xong ? (
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-leaf text-sm font-bold text-white">✓</span>
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-leaf text-white">
+                    <IconDuyet className="h-3.5 w-3.5" strokeWidth={3} />
+                  </span>
                 ) : dangChay ? (
                   <span className="animate-gbspin h-[22px] w-[22px] rounded-full border-[2.5px] border-[rgba(127,215,164,.3)] border-t-leaf-mint" />
                 ) : (

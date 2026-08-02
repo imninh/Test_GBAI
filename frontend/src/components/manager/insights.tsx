@@ -12,6 +12,17 @@ import * as React from "react";
 import { Button, Card, EmptyState, ErrorState, SeedBadge, Skeleton } from "@/components/ui/primitives";
 import { api } from "@/lib/api";
 import { kg, ngayGioVn, phanTram, soVn, tienUsd } from "@/lib/format";
+import {
+  IconBoQua,
+  IconCanhBao,
+  IconChao,
+  IconDuyet,
+  IconGiam,
+  IconMuiTenPhai,
+  IconTang,
+  IconTim,
+  IconTuChoi,
+} from "@/lib/icons";
 import type { AgentRunDetail, EvalSummary, OpsMetrics, Overview } from "@/lib/types";
 
 export function OverviewScreen({ onGoto }: { onGoto: (nav: string) => void }) {
@@ -30,7 +41,10 @@ export function OverviewScreen({ onGoto }: { onGoto: (nav: string) => void }) {
 
   return (
     <>
-      <div className="mb-0.5 font-[family-name:var(--font-display)] text-2xl font-bold">Chào buổi sáng 👋</div>
+      <div className="mb-0.5 flex items-center gap-2 font-[family-name:var(--font-display)] text-2xl font-bold">
+        Chào buổi sáng
+        <IconChao className="h-5 w-5 text-leaf" />
+      </div>
       <div className="mb-4 text-sm font-semibold text-muted">Hôm nay có gì cần anh xử lý?</div>
 
       {du.alerts.map((c) => (
@@ -43,7 +57,7 @@ export function OverviewScreen({ onGoto }: { onGoto: (nav: string) => void }) {
           }}
         >
           <span className="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-xl bg-hazard text-white">
-            ⚠
+            <IconCanhBao className="h-[18px] w-[18px]" />
           </span>
           <span className="flex-1 text-sm font-bold text-[#8a3418]">{c.title}</span>
           <Button size="sm" variant="outline" onClick={() => api.runs().then(() => onGoto("pickup"))}>
@@ -59,7 +73,10 @@ export function OverviewScreen({ onGoto }: { onGoto: (nav: string) => void }) {
           <div className="mt-1.5 text-[11px] font-semibold text-muted">
             {du.queues.pickup} thu gom · {du.queues.labels} nhãn · {du.queues.routes} tuyến
           </div>
-          <div className="mt-2 text-xs font-extrabold text-leaf">Duyệt ngay →</div>
+          <div className="mt-2 flex items-center gap-1 text-xs font-extrabold text-leaf">
+            Duyệt ngay
+            <IconMuiTenPhai className="h-3.5 w-3.5" />
+          </div>
         </Card>
 
         <Card className="p-4">
@@ -68,7 +85,14 @@ export function OverviewScreen({ onGoto }: { onGoto: (nav: string) => void }) {
             {soVn(du.classifications_this_week)}
           </div>
           <div className="mt-1.5 text-[11px] font-extrabold text-leaf-dark">
-            {du.growth === null ? "chưa có tuần trước để so" : `${du.growth >= 0 ? "▲" : "▼"} ${phanTram(Math.abs(du.growth))} so với tuần trước`}
+            {du.growth === null ? (
+              "chưa có tuần trước để so"
+            ) : (
+              <span className="inline-flex items-center gap-1">
+                {du.growth >= 0 ? <IconTang className="h-3.5 w-3.5" /> : <IconGiam className="h-3.5 w-3.5" />}
+                {phanTram(Math.abs(du.growth))} so với tuần trước
+              </span>
+            )}
           </div>
         </Card>
 
@@ -89,7 +113,10 @@ export function OverviewScreen({ onGoto }: { onGoto: (nav: string) => void }) {
           }}
         >
           <div className="mb-1.5 text-xs font-bold" style={{ color: antoanXanh ? "#1f8a4f" : "#c1471c" }}>
-            ⚠ Rác nguy hại bị bỏ sót
+            <span className="inline-flex items-center gap-1.5">
+              <IconCanhBao className="h-3.5 w-3.5" />
+              Rác nguy hại bị bỏ sót
+            </span>
           </div>
           <div
             className="font-[family-name:var(--font-display)] text-[32px] font-bold leading-none"
@@ -339,7 +366,10 @@ export function OpsScreen() {
       </Card>
 
       <div className="rounded-2xl border border-amber-line bg-amber-soft p-4">
-        <div className="mb-2.5 text-xs font-extrabold text-amber">⚠ GIỚI HẠN ĐÃ BIẾT CỦA HỆ THỐNG</div>
+        <div className="mb-2.5 flex items-center gap-1.5 text-xs font-extrabold text-amber">
+          <IconCanhBao className="h-3.5 w-3.5" />
+          GIỚI HẠN ĐÃ BIẾT CỦA HỆ THỐNG
+        </div>
         <div className="text-[13px] font-semibold leading-loose text-[#7a5c14]">
           {du.known_limitations.map((g) => (
             <div key={g}>• {g}</div>
@@ -439,7 +469,7 @@ export function QualityScreen() {
       <Card className="p-4">
         <div className="mb-3 text-sm font-bold">Thư viện ca nhận sai ({du.failures.length})</div>
         {du.failures.length === 0 ? (
-          <EmptyState icon="🔍" title="Chưa có ca nhận sai nào được ghi nhận" />
+          <EmptyState icon={IconTim} title="Chưa có ca nhận sai nào được ghi nhận" />
         ) : (
           <div className="grid grid-cols-3 gap-3">
             {du.failures.slice(0, 12).map((f) => (
@@ -514,7 +544,13 @@ export function AgentRunScreen() {
                     color: n.status === "ok" ? "#1f8a4f" : n.status === "skipped" ? "#8a938a" : "#c1471c",
                   }}
                 >
-                  {n.status === "ok" ? "✓" : n.status === "skipped" ? "⏭" : "✕"}
+                  {n.status === "ok" ? (
+                    <IconDuyet className="h-3.5 w-3.5" strokeWidth={3} />
+                  ) : n.status === "skipped" ? (
+                    <IconBoQua className="h-3 w-3" />
+                  ) : (
+                    <IconTuChoi className="h-3.5 w-3.5" strokeWidth={3} />
+                  )}
                 </span>
                 <div className="flex-1">
                   <div className="text-[13px] font-extrabold">{n.node}</div>

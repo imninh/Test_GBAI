@@ -7,6 +7,7 @@
 
 import * as React from "react";
 
+import { IconQuayLai } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
 export function PhoneFrame({
@@ -136,9 +137,9 @@ export function ScreenHeader({
         <button
           onClick={onBack}
           aria-label="Quay lại"
-          className="flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-full bg-white text-lg font-bold text-ink shadow-[0_2px_8px_rgba(20,40,25,.08)]"
+          className="flex h-[38px] w-[38px] cursor-pointer items-center justify-center rounded-full bg-white text-ink shadow-[0_2px_8px_rgba(20,40,25,.08)]"
         >
-          ‹
+          <IconQuayLai className="h-5 w-5" />
         </button>
       )}
       <span className={cn("text-[15px] font-bold", tone === "hazard" ? "text-[#a04b26]" : "text-muted-2")}>{title}</span>

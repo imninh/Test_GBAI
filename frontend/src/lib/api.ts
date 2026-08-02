@@ -16,7 +16,16 @@ import type {
   WasteCategory,
 } from "./types";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+/** Địa chỉ backend, **đã cắt dấu `/` thừa ở cuối**.
+ *
+ * Người điền biến môi trường trên Vercel gần như luôn dán kèm dấu `/` cuối, và
+ * chuỗi nối thẳng khi đó sinh ra `https://host//api/v1/auth/me` — Starlette coi
+ * đó là đường dẫn khác nên trả 404 cho **toàn bộ** API, kể cả lệnh khôi phục
+ * phiên lúc mở app. `redirect_slashes` của FastAPI chỉ lo dấu `/` thừa ở cuối
+ * đường dẫn, không lo dấu thừa ở đầu. Chuẩn hoá ngay tại nguồn thì lần sau ai
+ * dán kiểu gì cũng không hỏng.
+ */
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const TOKEN_KEY = "greenbin_token";
 
 export class ApiError extends Error {

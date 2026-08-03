@@ -51,8 +51,30 @@ MODEL_PRICES_USD_PER_MTOK: dict[str, tuple[float, float]] = {
 PROVIDER_DEFAULT_MODELS: dict[str, tuple[str, str, str]] = {
     "openai": ("gpt-4o-mini", "gpt-4o", "gpt-4o-mini"),
     "openrouter": ("openai/gpt-4o-mini", "openai/gpt-4o", "openai/gpt-4o-mini"),
+    # T1 đổi sang nemotron-nano-12b-v2-vl ngày 03/08/2026.
+    #
+    # ``meta/llama-3.2-11b-vision-instruct`` KHÔNG giữ nổi khuôn JSON: đo bằng
+    # chính prompt v2 và ``parse_model_json`` của repo, trên cùng một ảnh, nó
+    # hỏng **4/4 lần** (mã VISION-500) dù request đã bật
+    # ``response_format: json_object``. Đó không phải lỗi thi thoảng — nó là
+    # 100%, và là nguyên nhân gốc của cảnh "chụp phát nào cũng không nhận diện
+    # được" mà người dùng báo ngày 02/08.
+    #
+    # Đo cùng lúc trên catalog NIM thật của tài khoản (102 model, KHÔNG có model
+    # Qwen nào — họ Qwen đã end-of-life 27/07):
+    #
+    #   llama-3.2-11b-vision   parse  0/4  · 16,4s
+    #   llama-3.2-90b-vision   parse  4/4  · 10,2s · items=1
+    #   nemotron-nano-12b-v2-vl parse 4/4  ·  8,8s · items=2–3   ← chọn
+    #
+    # Chọn nemotron vì nhanh nhất và **liệt kê ``items`` phong phú nhất** — đó
+    # đúng là thứ hướng "một ảnh nhiều món" cần (bàn giao 02/08 mục 4). Giữ 90b
+    # ở T2 làm đường leo tầng khi cần model to hơn.
+    #
+    # ⚠️ Số đo trên lấy từ ảnh artwork linh vật, nên nó chỉ kết luận về ĐỘ BÁM
+    # JSON. Chất lượng nhãn phải đo lại bằng bộ ảnh rác thật (việc 2 mục 11).
     "nvidia": (
-        "meta/llama-3.2-11b-vision-instruct",
+        "nvidia/nemotron-nano-12b-v2-vl",
         "meta/llama-3.2-90b-vision-instruct",
         "meta/llama-3.1-8b-instruct",
     ),

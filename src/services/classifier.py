@@ -326,7 +326,7 @@ def classify_waste(
             if accepted:
                 _apply_vision_result(session, outcome, local, TIER_T05_LOCAL)
                 outcome.latency_ms = int((time.perf_counter() - started) * 1000)
-                return _finalize(outcome, text_query)
+                return _finalize(outcome, text_query, categories=categories)
 
     # --- Bước 4: T1 → (nếu cần) T2 ---
     # Mỗi tầng có nhà cung cấp riêng (xem ``config.resolve_provider``): T1 có
@@ -494,14 +494,24 @@ def classify_waste(
         outcome.suspect_hazardous = outcome.suspect_hazardous or result.suspect_hazardous
 
     outcome.latency_ms = int((time.perf_counter() - started) * 1000)
-    return _finalize(outcome, text_query, quality_issue=result.quality_issue)
+    return _finalize(outcome, text_query, quality_issue=result.quality_issue, categories=categories)
 
 
-def _finalize(outcome: ClassifyOutcome, text_query: str, quality_issue: str = "") -> ClassifyOutcome:
+def _finalize(
+    outcome: ClassifyOutcome,
+    text_query: str,
+    quality_issue: str = "",
+    categories: list[CategoryOption] | None = None,
+) -> ClassifyOutcome:
     """Kiểm tra an toàn lần cuối trước khi dám trả lời.
 
     Thứ tự ưu tiên: chặn cứng → chất lượng ảnh → ngưỡng của nhóm. Chặn cứng
     đứng trước vì nó **bỏ qua confidence** hoàn toàn.
+
+    Args:
+        categories: danh mục rác của lần phân loại này, dùng để biết mã nào là
+            nhóm nguy hại. Thiếu nó thì ``nhieu_nhom_khac_nhau`` giữ hành vi
+            chặt như trước — không biết thì không được đoán là an toàn.
     """
     step = time.perf_counter()
     rule = safety.check_hard_block(outcome.item_name, text_query)
@@ -519,10 +529,16 @@ def _finalize(outcome: ClassifyOutcome, text_query: str, quality_issue: str = ""
     if not outcome.category:
         return _refuse(outcome, RefusalReason.KHONG_NHAN_RA)
 
-    # Nhiều món thuộc nhiều nhóm khác nhau → một nhãn duy nhất là câu trả lời
-    # sai, **bất kể confidence**. Kiểm trước bước so ngưỡng bên dưới, vì bước
-    # đó chỉ chạy khi confidence thấp và sẽ bỏ lọt đúng ca này.
-    if safety.nhieu_nhom_khac_nhau(outcome.items):
+    # Nhiều nhóm khác nhau **và trong đó có nhóm nguy hại** → một nhãn duy nhất
+    # là câu trả lời nguy hiểm, từ chối **bất kể confidence**. Kiểm trước bước
+    # so ngưỡng bên dưới, vì bước đó chỉ chạy khi confidence thấp và sẽ bỏ lọt
+    # đúng ca này.
+    #
+    # Ảnh nhiều nhóm nhưng KHÔNG có nguy hại (nhựa + giấy + thuỷ tinh) thì vẫn
+    # trả lời theo món chủ đạo — xem docstring của `nhieu_nhom_khac_nhau` về lý
+    # do nới, và mục 4 bàn giao 02/08 về hướng xử lý gốc.
+    ma_nguy_hai = {c.code for c in categories if c.is_hazardous} if categories is not None else None
+    if safety.nhieu_nhom_khac_nhau(outcome.items, ma_nguy_hai):
         return _refuse(outcome, RefusalReason.NHIEU_VAT)
 
     # Model khai "nhiều món chồng lên nhau" NHƯNG không liệt kê món nào → không

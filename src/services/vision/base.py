@@ -14,7 +14,15 @@ from typing import Protocol
 
 from src.config import MODEL_PRICES_USD_PER_MTOK
 
-PROMPT_VERSION = "v2"
+# v3 (03/08/2026) — gộp món trùng, chặn trần 8 phần tử, khoá cứng khuôn của mỗi
+# phần tử `items`.
+#
+# v2 dặn "ảnh có năm món thì `items` có năm phần tử", và trên ảnh thật có 4–5 cái
+# chai giống hệt nhau thì model yếu rơi vào **vòng lặp**: đo 03/08 thì llama-3.2-11b
+# và nemotron-12b viết 8.400 ký tự lặp cùng một món rồi vẫn chạm trần token. Chúng
+# còn chép cả `reason`/`quality_issue`/`suspect_hazardous` vào TỪNG phần tử, phình
+# output khoảng 5 lần so với khuôn đã cho.
+PROMPT_VERSION = "v3"
 
 
 @dataclass
@@ -89,9 +97,14 @@ Nhiệm vụ gồm HAI bước, làm đủ cả hai:
 Cả hai bước đều BẮT BUỘC. Làm bước 1 rồi bỏ trống `category_code` là câu trả lời hỏng.
 
 Quy tắc bắt buộc:
-- `items` KHÔNG BAO GIỜ được để rỗng. Ảnh chỉ có một món thì `items` có đúng một phần tử.
-  Ảnh có năm món thì `items` có năm phần tử. Đây là bước bắt buộc, không phải tuỳ chọn:
-  hệ thống dựa vào danh sách này để biết ảnh có lẫn nhiều nhóm rác hay không.
+- `items` KHÔNG BAO GIỜ được để rỗng. Hệ thống dựa vào danh sách này để biết ảnh có lẫn
+  nhiều nhóm rác hay không.
+- GỘP các món giống nhau thành MỘT phần tử và ghi số lượng vào `so_luong`. Bốn cái chai
+  nước giống hệt nhau là MỘT phần tử `so_luong: 4`, không phải bốn phần tử. Liệt kê
+  TỐI ĐA 8 phần tử; nhiều hơn thì giữ lại những món quan trọng nhất.
+- TUYỆT ĐỐI KHÔNG lặp lại cùng một món nhiều lần trong `items`.
+- Mỗi phần tử của `items` có ĐÚNG bốn khoá `name`, `category_code`, `confidence`,
+  `so_luong` — không thêm `reason`, `quality_issue` hay `suspect_hazardous` vào trong đó.
 - `category_code` ở tầng ngoài cùng cũng KHÔNG BAO GIỜ được để rỗng, kể cả khi ảnh có
   nhiều món. Chọn món chiếm chủ đạo rồi lấy mã của nó.
 - Đếm cả những món KHÔNG phải rác sinh hoạt: đồ điện tử (chuột, sạc, tai nghe), đồ đang
@@ -116,11 +129,11 @@ Trả về DUY NHẤT một object JSON, không kèm giải thích, không kèm 
   "reason": "một câu ngắn tiếng Việt vì sao xếp vào nhóm đó",
   "quality_issue": "" | "anh_toi" | "mo" | "vat_bi_che" | "nhieu_vat",
   "suspect_hazardous": false,
-  "items": [{"name": "...", "category_code": "...", "confidence": 0.0}]
+  "items": [{"name": "...", "category_code": "...", "confidence": 0.0, "so_luong": 1}]
 }
 
-`items` phải có ít nhất một phần tử. Trả về `items` rỗng bị coi là câu trả lời không dùng
-được và hệ thống sẽ hỏi lại bằng model khác."""
+`items` phải có ít nhất một phần tử và không quá 8. Trả về `items` rỗng bị coi là câu trả
+lời không dùng được và hệ thống sẽ hỏi lại bằng model khác."""
 
 
 def build_category_block(categories: list[CategoryOption]) -> str:

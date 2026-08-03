@@ -223,15 +223,46 @@ def should_escalate_to_t2(
     return ""
 
 
-def nhieu_nhom_khac_nhau(items: list[dict]) -> bool:
-    """Danh sách món rác model liệt kê có trải trên nhiều nhóm khác nhau không.
+def ma_nhom_trong_items(items: list[dict]) -> set[str]:
+    """Tập mã nhóm rác model đã liệt kê, bỏ qua phần tử không khai mã."""
+    return {str(i.get("category_code", "")).strip() for i in items if i.get("category_code")}
+
+
+def nhieu_nhom_khac_nhau(items: list[dict], ma_nguy_hai: set[str] | None = None) -> bool:
+    """Ảnh nhiều nhóm rác có **nguy hiểm tới mức phải chuyển người** không.
 
     Một nhãn duy nhất cho ảnh gồm chai nhựa + bình thuỷ tinh + chuột máy tính
-    là **câu trả lời sai**, dù confidence có cao đến đâu: thuỷ tinh và rác
-    điện tử đi đường khác nhựa. Gặp trường hợp này thì chuyển người, không đoán.
+    là câu trả lời chưa đầy đủ. Nhưng "chưa đầy đủ" và "nguy hiểm" là hai mức
+    khác nhau, và trước 03/08 hàm này gộp chúng làm một.
+
+    **Vì sao phải nới (bản vá 03/08):** prompt v2 bắt model liệt kê MỌI món kể
+    cả món không phải rác, nên từ đó `items` gần như luôn trải trên nhiều nhóm.
+    Một chốt chặn hiếm khi kích hoạt bỗng thành chốt chặn LUÔN kích hoạt: đo
+    trên hàng đợi thật thì ảnh confidence 0,90–0,95 nhận đúng món vẫn bị từ
+    chối. Người dùng không nhận được hướng dẫn nào cả — tức chốt an toàn này
+    đang gây hại nhiều hơn lợi.
+
+    **Phần an toàn giữ nguyên:** còn nhóm nguy hại lẫn trong ảnh thì vẫn từ
+    chối bất kể confidence. Pin lithium nằm cạnh chai nhựa mà trả lời "nhựa tái
+    chế" đúng là câu trả lời nguy hiểm, và đó mới là ca mà luật này sinh ra để
+    chặn. Lẫn nhựa với giấy với thuỷ tinh thì cứ trả lời theo món chủ đạo.
+
+    Đây là **bản vá tạm**: câu trả lời đúng bản chất là thôi ép một nhãn duy
+    nhất và hướng dẫn theo từng món (hướng A, `docs/BAN_GIAO_2026-08-02.md`
+    mục 4). Khi hướng A xong thì hàm này đổi vai thành điều kiện rẽ nhánh.
+
+    Args:
+        items: danh sách món model liệt kê.
+        ma_nguy_hai: mã các nhóm rác nguy hại. Để ``None`` nghĩa là không tra
+            được danh mục — khi đó giữ hành vi chặt như cũ, vì không biết trong
+            ảnh có nguy hại hay không thì không được đoán là không có.
     """
-    ma_nhom = {str(i.get("category_code", "")).strip() for i in items if i.get("category_code")}
-    return len(ma_nhom) > 1
+    ma_nhom = ma_nhom_trong_items(items)
+    if len(ma_nhom) <= 1:
+        return False
+    if ma_nguy_hai is None:
+        return True
+    return bool(ma_nhom & ma_nguy_hai)
 
 
 def safety_warning_for(category: WasteCategory | None) -> str:

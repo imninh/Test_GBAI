@@ -17,7 +17,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from src.config import get_settings, reset_settings_cache
+from src.config import PROVIDER_DEFAULT_MODELS, get_settings, reset_settings_cache
 from src.services.vision import (
     GeminiClient,
     OpenAICompatibleClient,
@@ -61,12 +61,21 @@ def test_moi_tang_doc_nha_cung_cap_cua_rieng_no(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_model_mac_dinh_lay_theo_provider_cua_chinh_tang_do(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Chỗ dễ sai nhất: T1 phải lấy model mặc định của NVIDIA, không của Gemini."""
+    """Chỗ dễ sai nhất: T1 phải lấy model mặc định của NVIDIA, không của Gemini.
+
+    So với bảng ``PROVIDER_DEFAULT_MODELS`` chứ **không chép cứng tên model**:
+    điều cần khẳng định là "lấy đúng ô của provider phụ trách tầng đó", còn tên
+    model thì đổi theo thời gian. Bản đầu chép cứng tên nên đổi model T1 ngày
+    03/08 làm test này đỏ dù định tuyến vẫn đúng — đó là test giòn, không phải
+    lỗi thật.
+    """
     _tron_ba_nha_cung_cap(monkeypatch)
 
-    assert get_tier_model("t1") == "meta/llama-3.2-11b-vision-instruct"
-    assert get_tier_model("t2") == "gemini-flash-latest"
-    assert get_tier_model("text") == "gemini-flash-lite-latest"
+    assert get_tier_model("t1") == PROVIDER_DEFAULT_MODELS["nvidia"][0]
+    assert get_tier_model("t2") == PROVIDER_DEFAULT_MODELS["gemini"][1]
+    assert get_tier_model("text") == PROVIDER_DEFAULT_MODELS["gemini"][2]
+    # Khẳng định thêm cho chắc: T1 KHÔNG được rơi vào model của Gemini.
+    assert get_tier_model("t1") not in PROVIDER_DEFAULT_MODELS["gemini"]
 
 
 def test_khong_khai_rieng_thi_lui_ve_provider_chung(monkeypatch: pytest.MonkeyPatch) -> None:

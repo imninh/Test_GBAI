@@ -129,7 +129,16 @@ class OpenAICompatibleClient:
                 "model": model,
                 "messages": [{"role": "user", "content": content}],
                 "temperature": 0.1,
-                "max_tokens": 700,
+                # 700 là QUÁ NHỎ cho prompt liệt kê `items` — đo 03/08/2026 trên
+                # hai ảnh rác thật: `finish_reason: "length"`, completion_tokens
+                # đúng bằng trần, JSON đứt giữa chừng. `parse_model_json` ném
+                # ValueError và cả lần phân loại trở thành `VISION-500`.
+                #
+                # Đây mới là nguyên nhân gốc của "chụp phát nào cũng không nhận
+                # diện được", KHÔNG phải "model 11B quá nhỏ để bám JSON" như
+                # chẩn đoán ngày 02/08: chuỗi trả về đúng cú pháp, chỉ là bị cắt.
+                # llama-3.2-90b hỏng 3/3 ở trần 700 và chạy sạch ở trần này.
+                "max_tokens": 2000,
                 "response_format": {"type": "json_object"},
             }
         )

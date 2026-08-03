@@ -503,6 +503,58 @@ def test_nhieu_mon_cung_mot_nhom_thi_van_tra_loi_binh_thuong(
     assert outcome.category is not None and outcome.category.code == "recyclable_plastic"
 
 
+def test_nhieu_nhom_nhung_khong_co_nguy_hai_thi_van_tra_loi(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Bản vá 03/08 — ảnh thật nào cũng có hơn một thứ trong khung.
+
+    Prompt v2 bắt model liệt kê MỌI món kể cả món không phải rác, nên từ 02/08
+    ``items`` gần như luôn trải trên nhiều nhóm. Đo trên hàng đợi thật: ảnh
+    confidence 0,90–0,95 nhận đúng món vẫn bị từ chối, người dùng không nhận
+    được hướng dẫn nào. Nhựa + thuỷ tinh + giấy **không nguy hiểm** — cứ trả
+    lời theo món chủ đạo.
+    """
+    nhieu_nhom_lanh = [
+        {"name": "Chai nhựa PET", "category_code": "recyclable_plastic", "confidence": 0.95},
+        {"name": "Bình thuỷ tinh", "category_code": "recyclable_glass", "confidence": 0.85},
+        {"name": "Khăn giấy", "category_code": "recyclable_paper", "confidence": 0.8},
+    ]
+    _dung_model_gia(
+        monkeypatch,
+        make_result(category_code="recyclable_plastic", confidence=0.95, items=nhieu_nhom_lanh),
+        make_result(category_code="recyclable_plastic", confidence=0.95, items=nhieu_nhom_lanh),
+    )
+
+    outcome = classify_waste(db_session, image_bytes=b"anh-ban-an", image_phash="aaaa1111bbbb2222")
+
+    assert not outcome.refused, "nhiều nhóm nhưng không có nguy hại thì không được từ chối"
+    assert outcome.category is not None and outcome.category.code == "recyclable_plastic"
+
+
+def test_nhieu_nhom_co_lan_nguy_hai_thi_van_tu_choi(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Phần an toàn của bản vá 03/08 — nới cho nhóm lành, giữ chặt nhóm nguy hại.
+
+    Cục pin nằm cạnh chai nhựa mà trả lời "nhựa tái chế" là câu trả lời nguy
+    hiểm thật. Từ chối **bất kể confidence**, đúng ca mà luật này sinh ra để chặn.
+    """
+    co_nguy_hai = [
+        {"name": "Chai nhựa PET", "category_code": "recyclable_plastic", "confidence": 0.95},
+        {"name": "Pin AA đã dùng", "category_code": "hazardous", "confidence": 0.7},
+    ]
+    _dung_model_gia(
+        monkeypatch,
+        make_result(category_code="recyclable_plastic", confidence=0.95, items=co_nguy_hai),
+        make_result(category_code="recyclable_plastic", confidence=0.95, items=co_nguy_hai),
+    )
+
+    outcome = classify_waste(db_session, image_bytes=b"anh-co-pin", image_phash="cccc3333dddd4444")
+
+    assert outcome.refused
+    assert outcome.refusal_reason == "nhieu_vat"
+
+
 def test_t1_khong_liet_ke_mon_nao_thi_leo_len_t2(
     db_session: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
